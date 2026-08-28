@@ -1,0 +1,4 @@
+ml-model/best_model.pth
+ml-model/*.pth
+ml-model/__pycache__/
+ml-model/*.csv
