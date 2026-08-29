@@ -3,10 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Circle, Polyline, Popup, Marker } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { SpillEntity } from '@/features/spills/domain/SpillEntity';
-import { useDashboard } from '@/context/DashboardContext';
+import { InvestigationDetailResponse, Alert } from '@/lib/api/types';
 
-// Fix for default marker icons in Leaflet with Next.js
 const defaultIcon = L.icon({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -18,68 +16,33 @@ const defaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = defaultIcon;
 
-export default function MapWidget() {
+interface MapWidgetProps {
+  investigationData?: InvestigationDetailResponse | null;
+  selectedVessel?: string | null;
+  activeAlert?: Alert | null;
+}
+
+export default function MapWidget({ investigationData, selectedVessel, activeAlert }: MapWidgetProps) {
   const [mounted, setMounted] = useState(false);
-  const [spills, setSpills] = useState<SpillEntity[]>([]);
-  const { selectedVessel } = useDashboard();
 
   useEffect(() => {
     setMounted(true);
-    // Fetch spills from our Next.js API
-    fetch('/api/spills')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          const formattedSpills = data.data.map((s: any) => ({
-            ...s,
-            detectedAt: new Date(s.detectedAt),
-            hindcastOrigin: {
-              ...s.hindcastOrigin,
-              estimatedTime: new Date(s.hindcastOrigin.estimatedTime)
-            }
-          }));
-          setSpills(formattedSpills);
-        }
-      })
-      .catch(err => console.error("Failed to fetch spills:", err));
   }, []);
 
   if (!mounted) return null;
 
-  // Set map center somewhat around the area shown in the image
   const center: [number, number] = [19.0, 72.8]; 
   
-  // Tactical custom icon for vessels
-  const getVesselIcon = (color: string) => new L.DivIcon({
+  const getVesselIcon = (color: string, isCandidate: boolean) => new L.DivIcon({
     className: 'custom-vessel-icon',
-    html: `<div style="background: ${color}; width: 10px; height: 10px; transform: rotate(45deg); border: 1px solid #fff; box-shadow: 0 0 10px ${color};"></div>`,
-    iconSize: [10, 10],
-    iconAnchor: [5, 5]
+    html: `<div style="background: ${color}; width: ${isCandidate ? 12 : 8}px; height: ${isCandidate ? 12 : 8}px; transform: rotate(45deg); border: 1px solid #fff; box-shadow: 0 0 10px ${color}; opacity: ${isCandidate ? 1 : 0.6}"></div>`,
+    iconSize: isCandidate ? [12, 12] : [8, 8],
+    iconAnchor: isCandidate ? [6, 6] : [4, 4]
   });
 
-  // Mock all vessel tracks mapped to IMOs
-  const mockVesselTracks: Record<string, { name: string; color: string; positions: [number, number][] }> = {
-    '987654321': { 
-      name: 'Oceanic Pride', 
-      color: 'var(--accent-red)', 
-      positions: [[18.5, 72.5], [18.7, 72.65], [18.8, 72.7]] 
-    },
-    '123456789': { 
-      name: 'Sea Voyager', 
-      color: 'var(--accent-orange)', 
-      positions: [[19.2, 72.9], [19.1, 72.8], [18.8, 72.7]] 
-    },
-    '456789123': { 
-      name: 'Global Trader', 
-      color: 'var(--accent-yellow)', 
-      positions: [[18.2, 72.2], [18.5, 72.4], [18.8, 72.7]] 
-    },
-    '789123456': { 
-      name: 'Pacific Pearl', 
-      color: 'var(--accent-green)', 
-      positions: [[19.5, 72.4], [19.2, 72.5], [18.8, 72.7]] 
-    },
-  };
+  const aisTracks = investigationData?.ais?.tracks || [];
+  const candidates = investigationData?.candidates || [];
+  const candidateIds = new Set(candidates.map((c: any) => c.mmsi || c.vesselId));
 
   return (
     <div style={{ height: '100%', width: '100%', position: 'relative' }}>
@@ -87,111 +50,143 @@ export default function MapWidget() {
         center={center} 
         zoom={9} 
         style={{ height: '100%', width: '100%', background: '#020408' }}
-        zoomControl={false} // Custom zoom controls in a real app
+        zoomControl={false}
         attributionControl={false}
       >
-        {/* Deep dark satellite style basemap */}
         <TileLayer
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-          opacity={0.6} // Darken it by reducing opacity over the #020408 background
+          opacity={0.6}
         />
         
-        {spills.map((spill, index) => {
-          const radius = Math.sqrt(spill.areaSqKm / Math.PI) * 1000;
-          return (
-            <React.Fragment key={spill.id}>
-              {/* Tactical Slick Overlay */}
-              <Circle 
-                center={[spill.currentLocation.lat, spill.currentLocation.lng]} 
-                radius={radius} 
-                pathOptions={{ color: 'var(--accent-red)', fillColor: 'var(--accent-red)', fillOpacity: 0.2, weight: 1, dashArray: '4,4' }}
-              />
+        {/* Render Slick Area */}
+        {activeAlert && (
+          <React.Fragment>
+            {(() => {
+              const lat = 19.05; // Mock since real drift is in investigationData
+              const lon = 72.85;
+              const area = activeAlert.detection?.area_pct || investigationData?.detection?.area_pct || 10;
+              const radius = Math.sqrt(area / Math.PI) * 1000;
+              
+              const reconRegion = investigationData?.reconstruction?.sourceRegion;
+              const sourceLat = reconRegion?.geometry?.coordinates?.[1] || lat - 0.1;
+              const sourceLon = reconRegion?.geometry?.coordinates?.[0] || lon - 0.1;
 
-              {/* Source/Origin Point */}
-              <Circle 
-                center={[spill.hindcastOrigin.lat, spill.hindcastOrigin.lng]} 
-                radius={800} 
-                pathOptions={{ color: '#fff', fillColor: '#fff', fillOpacity: 0.8, weight: 0 }}
-              />
+              return (
+                <React.Fragment>
+                  {/* Current Slick */}
+                  <Circle 
+                    center={[lat, lon]} 
+                    radius={radius} 
+                    pathOptions={{ color: 'var(--accent-yellow)', fillColor: 'var(--accent-yellow)', fillOpacity: 0.3, weight: 1, dashArray: '4,4' }}
+                  />
+                  {/* Source Region Heatmap approximation */}
+                  {investigationData && (
+                    <>
+                      <Circle 
+                        center={[sourceLat, sourceLon]} 
+                        radius={2500} 
+                        pathOptions={{ color: 'rgba(239, 68, 68, 0.2)', fillColor: 'var(--accent-red)', fillOpacity: 0.2, weight: 1, dashArray: '2,4' }}
+                      />
+                      <Circle 
+                        center={[sourceLat, sourceLon]} 
+                        radius={500} 
+                        pathOptions={{ color: 'var(--accent-red)', fillColor: 'var(--accent-red)', fillOpacity: 0.6, weight: 0 }}
+                      />
+                      {/* Backward Drift Path */}
+                      <Polyline 
+                        positions={[
+                          [sourceLat, sourceLon],
+                          [lat, lon]
+                        ]} 
+                        color="var(--accent-yellow)" 
+                        weight={2} 
+                        dashArray="2, 6" 
+                      />
+                    </>
+                  )}
+                </React.Fragment>
+              );
+            })()}
+          </React.Fragment>
+        )}
 
-              {/* Trajectory Path */}
-              <Polyline 
-                positions={[
-                  [spill.hindcastOrigin.lat, spill.hindcastOrigin.lng],
-                  [spill.currentLocation.lat, spill.currentLocation.lng]
-                ]} 
-                color="var(--accent-red)" 
-                weight={1} 
-                dashArray="2, 6" 
-              />
-            </React.Fragment>
-          );
-        })}
-
-        {/* Vessel Tracks - render selected one brightly, others dim, or all if none selected */}
-        {Object.entries(mockVesselTracks).map(([imo, track]) => {
-          const isSelected = selectedVessel === imo;
-          const isFaded = selectedVessel !== null && !isSelected;
-          const currentOpacity = isFaded ? 0.2 : 1.0;
+        {/* Render AIS Trajectories */}
+        {aisTracks.map((track: any) => {
+          const isCandidate = candidateIds.has(track.mmsi) || candidateIds.has(track.vesselId) || false;
+          const isSelected = selectedVessel === String(track.mmsi);
           
+          let trackColor = isSelected ? 'var(--accent-red)' : isCandidate ? 'var(--accent-orange)' : 'rgba(255, 255, 255, 0.3)';
+          let trackWeight = isSelected ? 3 : isCandidate ? 2 : 1;
+          
+          const positions: [number, number][] = track.positions.map((p: any) => [p.lat, p.lon]);
+          if (positions.length === 0) return null;
+
+          const currentPos = positions[positions.length - 1]; // Simply use last position for demo since we haven't implemented timeline scrubber interpolation yet
+
           return (
-            <React.Fragment key={imo}>
+            <React.Fragment key={track.vesselId || track.mmsi}>
               <Polyline 
-                positions={track.positions} 
-                color={track.color}
-                weight={isSelected ? 4 : 2} 
-                dashArray="4, 4"
-                opacity={currentOpacity}
+                positions={positions}
+                color={trackColor}
+                weight={trackWeight}
+                opacity={isSelected ? 1 : isCandidate ? 0.7 : 0.4}
               />
               <Marker 
-                position={track.positions[track.positions.length - 1]} 
-                icon={getVesselIcon(track.color)} 
+                position={currentPos} 
+                icon={getVesselIcon(isSelected ? 'var(--accent-red)' : isCandidate ? 'var(--accent-orange)' : '#ffffff', isCandidate)} 
               >
                 <Popup>
-                  <div style={{ color: '#000' }}>
-                    <strong>{track.name}</strong><br/>
-                    IMO: {imo}
+                  <div style={{ color: '#000', fontSize: '12px' }}>
+                    <strong>{track.name || `Vessel ${track.mmsi}`}</strong><br/>
+                    MMSI: {track.mmsi}<br/>
+                    Type: {track.vesselType}
                   </div>
                 </Popup>
               </Marker>
             </React.Fragment>
           );
         })}
+
       </MapContainer>
 
-      {/* Floating Panel: DETECTED SLICK */}
-      <div className="tactical-panel" style={{
-        position: 'absolute',
-        top: '100px',
-        left: '280px',
-        width: '260px',
-        padding: '16px',
-        zIndex: 1000,
-        pointerEvents: 'auto'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-          <div>
-            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent-red)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Detected Slick
+      {activeAlert && (
+        <div className="tactical-panel" style={{
+          position: 'absolute',
+          top: '24px',
+          left: '280px',
+          width: '260px',
+          padding: '16px',
+          zIndex: 1000,
+          pointerEvents: 'auto'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent-yellow)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Detected Slick
+              </div>
+              <div className="tactical-text" style={{ color: 'var(--text-muted)' }}>
+                {activeAlert.observation_id || activeAlert._id}
+              </div>
             </div>
-            <div className="tactical-text" style={{ color: 'var(--text-muted)' }}>19.1234° N, 72.9876° E</div>
           </div>
-          <div style={{ width: '24px', height: '24px', border: '1px solid var(--accent-red)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ width: '4px', height: '4px', background: 'var(--accent-red)' }}></div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Area</span>
+              <span className="tactical-text" style={{ color: 'var(--text-primary)' }}>{activeAlert.detection?.area_pct || investigationData?.detection?.area_pct || '--'}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Confidence</span>
+              <span className="tactical-text" style={{ color: 'var(--text-primary)' }}>{activeAlert.detection?.confidence || investigationData?.detection?.confidence || '--'}</span>
+            </div>
+            {investigationData?.ais?.source && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', padding: '4px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '4px' }}>
+                <span style={{ fontSize: '10px', color: 'var(--accent-red)', fontWeight: 600 }}>DEMO SCENARIO</span>
+                <span style={{ fontSize: '10px', color: 'var(--accent-red)' }}>SIMULATED AIS</span>
+              </div>
+            )}
           </div>
         </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Area</span>
-            <span className="tactical-text" style={{ color: 'var(--text-primary)' }}>13.8 km²</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Confidence</span>
-            <span className="tactical-text" style={{ color: 'var(--text-primary)' }}>91%</span>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

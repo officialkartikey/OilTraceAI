@@ -1,6 +1,10 @@
 import { Wind, Navigation, Waves } from 'lucide-react';
+import { useInvestigation } from '@/context/InvestigationContext';
 
 export default function EnvironmentalConditions() {
+  const { data } = useInvestigation();
+  const env = data?.reconstruction?.environmentalInputs || {};
+
   return (
     <div className="tactical-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -18,8 +22,8 @@ export default function EnvironmentalConditions() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Wind size={16} color="var(--accent-blue)" />
             <div className="tactical-text">
-              <span style={{ fontSize: '16px', color: 'var(--text-primary)' }}>12.4</span> m/s
-              <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>NE</div>
+              <span style={{ fontSize: '16px', color: 'var(--text-primary)' }}>{env.windSpeedKn ? env.windSpeedKn.toFixed(1) : '--'}</span> kn
+              <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{env.windDirDeg ? env.windDirDeg.toFixed(0) + '°' : '--'}</div>
             </div>
           </div>
         </div>
@@ -30,19 +34,8 @@ export default function EnvironmentalConditions() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Navigation size={16} color="var(--accent-blue)" style={{ transform: 'rotate(45deg)' }} />
             <div className="tactical-text">
-              <span style={{ fontSize: '16px', color: 'var(--text-primary)' }}>0.8</span> m/s
-              <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>ESE</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Wave Height */}
-        <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '12px' }}>
-          <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>Wave Height</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Waves size={16} color="var(--accent-blue)" />
-            <div className="tactical-text">
-              <span style={{ fontSize: '16px', color: 'var(--text-primary)' }}>1.2</span> m
+              <span style={{ fontSize: '16px', color: 'var(--text-primary)' }}>{env.currentSpeedKn ? env.currentSpeedKn.toFixed(1) : '--'}</span> kn
+              <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{env.currentDirDeg ? env.currentDirDeg.toFixed(0) + '°' : '--'}</div>
             </div>
           </div>
         </div>

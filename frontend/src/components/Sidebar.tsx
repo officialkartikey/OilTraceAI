@@ -1,7 +1,7 @@
 "use client";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Shield, Home, Search, Eye, Ship, RotateCcw, Layers, Bell, FileText, Settings, Circle, LogOut } from 'lucide-react';
+import { Shield, Home, Search, FileText, Settings, Circle, LogOut } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 
 export default function Sidebar() {
@@ -14,13 +14,8 @@ export default function Sidebar() {
   }
 
   const navItems = [
-    { name: 'Home', path: '/', icon: Home },
+    { name: 'Dashboard', path: '/', icon: Home },
     { name: 'Investigations', path: '/investigations', icon: Search },
-    { name: 'Observations', path: '/observations', icon: Eye },
-    { name: 'Vessels', path: '/vessels', icon: Ship },
-    { name: 'Reconstruction', path: '/reconstruction', icon: RotateCcw },
-    { name: 'Evidence Fusion', path: '/evidence', icon: Layers },
-    { name: 'Alerts', path: '/alerts', icon: Bell },
     { name: 'Reports', path: '/reports', icon: FileText },
     { name: 'Settings', path: '/settings', icon: Settings },
   ];

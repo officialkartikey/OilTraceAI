@@ -1,23 +1,41 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
-import { Search, Filter, MoreVertical, ArrowRight, ShieldAlert } from 'lucide-react';
+import { Search, Filter, MoreVertical, ArrowRight, ShieldAlert, Loader2 } from 'lucide-react';
+import { investigationsApi } from '@/lib/api/investigations';
+import { ActiveSpill } from '@/lib/api/types';
 
 export default function InvestigationsPage() {
-  const [selectedRow, setSelectedRow] = useState<string | null>('IN-2026-08-24-1030');
+  const router = useRouter();
+  const [selectedRow, setSelectedRow] = useState<string | null>(null);
+  const [investigations, setInvestigations] = useState<ActiveSpill[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const investigations = [
-    { id: 'IN-2026-08-24-1030', date: '2026-08-24 10:30', location: 'Arabian Sea, 19.1°N 72.9°E', type: 'Oil Spill', status: 'Active', priority: 'High', area: '13.8 km²' },
-    { id: 'IN-2026-08-23-0915', date: '2026-08-23 09:15', location: 'Bay of Bengal, 14.5°N 83.2°E', type: 'Bilge Dump', status: 'Analysis', priority: 'Medium', area: '4.2 km²' },
-    { id: 'IN-2026-08-20-1422', date: '2026-08-20 14:22', location: 'Laccadive Sea, 9.8°N 76.1°E', type: 'Unknown Anomaly', status: 'Closed', priority: 'Low', area: '1.1 km²' },
-    { id: 'IN-2026-08-18-1100', date: '2026-08-18 11:00', location: 'Andaman Sea, 11.2°N 92.5°E', type: 'Oil Spill', status: 'Closed', priority: 'High', area: '22.5 km²' },
-  ];
+  useEffect(() => {
+    const fetchSpills = async () => {
+      try {
+        setLoading(true);
+        const data = await investigationsApi.getActiveSpills();
+        setInvestigations(data);
+        if (data.length > 0) {
+          setSelectedRow(data[0].id);
+        }
+      } catch (err: any) {
+        setError('Backend unavailable. ' + err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSpills();
+  }, []);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
       <Header />
       
-      <div style={{ display: 'flex', flex: 1, padding: '80px 32px 32px 32px', gap: '24px' }}>
+      <div style={{ display: 'flex', flex: 1, padding: '32px', gap: '24px' }}>
         
         {/* Left Table Section */}
         <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -49,45 +67,59 @@ export default function InvestigationsPage() {
 
             {/* Table Body */}
             <div style={{ overflowY: 'auto', flex: 1 }}>
-              {investigations.map((inv) => (
-                <div 
-                  key={inv.id}
-                  onClick={() => setSelectedRow(inv.id)}
-                  style={{ 
-                    display: 'grid', gridTemplateColumns: '1.5fr 1fr 2fr 1fr 1fr 0.5fr', padding: '16px', 
-                    borderBottom: '1px solid rgba(255,255,255,0.05)',
-                    background: selectedRow === inv.id ? 'rgba(14, 165, 233, 0.1)' : 'transparent',
-                    cursor: 'pointer',
-                    alignItems: 'center',
-                    transition: 'background 0.2s'
-                  }}
-                  onMouseOver={(e) => { if (selectedRow !== inv.id) e.currentTarget.style.background = 'rgba(255,255,255,0.02)' }}
-                  onMouseOut={(e) => { if (selectedRow !== inv.id) e.currentTarget.style.background = 'transparent' }}
-                >
-                  <div className="tactical-text" style={{ color: selectedRow === inv.id ? 'var(--accent-blue)' : 'var(--text-primary)' }}>{inv.id}</div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{inv.date}</div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-primary)' }}>{inv.location}</div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{inv.type}</div>
-                  <div>
-                    <span style={{ 
-                      padding: '4px 8px', borderRadius: '4px', fontSize: '11px',
-                      background: inv.status === 'Active' ? 'rgba(239, 68, 68, 0.2)' : inv.status === 'Analysis' ? 'rgba(234, 179, 8, 0.2)' : 'rgba(255, 255, 255, 0.1)',
-                      color: inv.status === 'Active' ? 'var(--accent-red)' : inv.status === 'Analysis' ? 'var(--accent-yellow)' : 'var(--text-secondary)'
-                    }}>
-                      {inv.status}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <MoreVertical size={16} color="var(--text-muted)" />
-                  </div>
+              {loading ? (
+                <div style={{ padding: '32px', display: 'flex', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                  <Loader2 size={24} className="animate-spin" />
                 </div>
-              ))}
+              ) : error ? (
+                <div style={{ padding: '32px', color: 'var(--accent-red)', textAlign: 'center' }}>
+                  {error}
+                </div>
+              ) : investigations.length === 0 ? (
+                <div style={{ padding: '32px', color: 'var(--text-muted)', textAlign: 'center' }}>
+                  No active investigations found.
+                </div>
+              ) : (
+                investigations.map((inv) => (
+                  <div 
+                    key={inv.id}
+                    onClick={() => setSelectedRow(inv.id)}
+                    style={{ 
+                      display: 'grid', gridTemplateColumns: '1.5fr 1fr 2fr 1fr 1fr 0.5fr', padding: '16px', 
+                      borderBottom: '1px solid rgba(255,255,255,0.05)',
+                      background: selectedRow === inv.id ? 'rgba(14, 165, 233, 0.1)' : 'transparent',
+                      cursor: 'pointer',
+                      alignItems: 'center',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseOver={(e) => { if (selectedRow !== inv.id) e.currentTarget.style.background = 'rgba(255,255,255,0.02)' }}
+                    onMouseOut={(e) => { if (selectedRow !== inv.id) e.currentTarget.style.background = 'transparent' }}
+                  >
+                    <div className="tactical-text" style={{ color: selectedRow === inv.id ? 'var(--accent-blue)' : 'var(--text-primary)' }}>{inv.id}</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{new Date(inv.detectedAt).toISOString().substring(0, 16).replace('T', ' ')}</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-primary)' }}>{inv.currentLocation.lat.toFixed(2)}°N {inv.currentLocation.lng.toFixed(2)}°E</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>SAR Detection</div>
+                    <div>
+                      <span style={{ 
+                        padding: '4px 8px', borderRadius: '4px', fontSize: '11px',
+                        background: inv.status === 'ACTIVE' ? 'rgba(239, 68, 68, 0.2)' : inv.status === 'VERIFYING' ? 'rgba(234, 179, 8, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+                        color: inv.status === 'ACTIVE' ? 'var(--accent-red)' : inv.status === 'VERIFYING' ? 'var(--accent-yellow)' : 'var(--text-secondary)'
+                      }}>
+                        {inv.status}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <MoreVertical size={16} color="var(--text-muted)" />
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
 
         {/* Right Details Panel */}
-        {selectedRow && (
+        {selectedRow && investigations.length > 0 && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {(() => {
               const inv = investigations.find(i => i.id === selectedRow);
@@ -112,7 +144,7 @@ export default function InvestigationsPage() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '32px' }}>
                     <div>
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>Date / Time</div>
-                      <div style={{ fontSize: '14px', color: 'var(--text-primary)' }}>{inv.date}</div>
+                      <div style={{ fontSize: '14px', color: 'var(--text-primary)' }}>{new Date(inv.detectedAt).toISOString().substring(0, 16).replace('T', ' ')}</div>
                     </div>
                     <div>
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>Status</div>
@@ -120,11 +152,11 @@ export default function InvestigationsPage() {
                     </div>
                     <div>
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>Priority</div>
-                      <div style={{ fontSize: '14px', color: inv.priority === 'High' ? 'var(--accent-red)' : 'var(--text-primary)' }}>{inv.priority}</div>
+                      <div style={{ fontSize: '14px', color: inv.status === 'ACTIVE' ? 'var(--accent-red)' : 'var(--text-primary)' }}>High</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>Observed Area</div>
-                      <div style={{ fontSize: '14px', color: 'var(--text-primary)' }}>{inv.area}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>Type</div>
+                      <div style={{ fontSize: '14px', color: 'var(--text-primary)' }}>SAR Detection</div>
                     </div>
                   </div>
 
@@ -136,11 +168,14 @@ export default function InvestigationsPage() {
                      </div>
                   </div>
 
-                  <button style={{ 
-                    width: '100%', padding: '12px', background: 'var(--accent-blue)', color: '#fff', border: 'none', borderRadius: '4px',
-                    display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', cursor: 'pointer',
-                    fontSize: '13px', fontWeight: 600
-                  }}>
+                  <button 
+                    onClick={() => router.push(`/investigations/${inv.id}`)}
+                    style={{ 
+                      width: '100%', padding: '12px', background: 'var(--accent-blue)', color: '#fff', border: 'none', borderRadius: '4px',
+                      display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', cursor: 'pointer',
+                      fontSize: '13px', fontWeight: 600
+                    }}
+                  >
                     Open in Tactical View <ArrowRight size={16} />
                   </button>
                 </div>
@@ -152,3 +187,4 @@ export default function InvestigationsPage() {
     </div>
   );
 }
+

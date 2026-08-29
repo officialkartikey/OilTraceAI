@@ -1,14 +1,12 @@
 "use client";
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Header from '@/components/Header';
-import EnvironmentalConditions from '@/components/EnvironmentalConditions';
-import SourceReconstruction from '@/components/SourceReconstruction';
-import CandidateVesselsList from '@/components/CandidateVesselsList';
-import IncidentTimeline from '@/components/IncidentTimeline';
-import ObservationCards from '@/components/ObservationCards';
-import { useDashboard } from '@/context/DashboardContext';
-import { X, Maximize2 } from 'lucide-react';
+import { Shield, Activity, Clock, MapPin } from 'lucide-react';
+import { investigationsApi } from '@/lib/api/investigations';
+import { Alert } from '@/lib/api/types';
+import Link from 'next/link';
+import NewAnalysisTool from '@/components/NewAnalysisTool';
 
 // Dynamically import the map to avoid SSR issues with Leaflet
 const MapWidget = dynamic(() => import('@/components/MapWidget'), {
@@ -17,18 +15,23 @@ const MapWidget = dynamic(() => import('@/components/MapWidget'), {
 });
 
 export default function Dashboard() {
-  const { observationModalOpen, setObservationModalOpen } = useDashboard();
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  
+  useEffect(() => {
+    investigationsApi.getAlertsData().then(setAlerts).catch(console.error);
+  }, []);
 
   return (
     <div style={{ position: 'relative', height: '100vh', width: '100%', overflow: 'hidden' }}>
       
       {/* Background Map Layer (Z-Index 0) */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-        <MapWidget />
+        <MapWidget 
+          activeAlert={alerts.length > 0 ? alerts[0] : null}
+        />
       </div>
 
       {/* Scrollable UI Overlay Layer (Z-Index 10) */}
-      {/* pointerEvents: 'none' allows map interaction. Users can scroll when hovering over panels. */}
       <div className="custom-scrollbar" style={{ 
         position: 'absolute', inset: 0, zIndex: 10, 
         overflowY: 'auto', overflowX: 'hidden',
@@ -38,85 +41,65 @@ export default function Dashboard() {
         
         {/* Sticky Header */}
         <div style={{ position: 'sticky', top: 0, zIndex: 100, pointerEvents: 'auto' }}>
-          <Header />
+          <Header title="Operational Overview" />
         </div>
 
         {/* Content Wrapper */}
         <div style={{ 
           flex: 1, display: 'flex', flexDirection: 'column', 
-          padding: '24px 32px 32px 32px', gap: '32px',
-          minHeight: '100vh' // Ensures there is always enough room to scroll if needed
+          padding: '80px 32px 32px 32px', gap: '32px',
         }}>
           
-          {/* Top Section: Spacer + Right Sidebar */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1 }}></div>
             
-            {/* Empty space for Map clicking */}
-            <div style={{ flex: 1, minHeight: '400px' }}></div>
-            
-            {/* Right Panel Stack */}
-            <div style={{ width: '380px', display: 'flex', flexDirection: 'column', gap: '16px', pointerEvents: 'auto' }}>
-              <EnvironmentalConditions />
-              <SourceReconstruction />
-              <CandidateVesselsList />
+            {/* Right side: Data Ingestion & Recent Alerts */}
+            <div style={{ width: '400px', pointerEvents: 'auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              
+              {/* Data Ingestion Tool */}
+              <NewAnalysisTool />
+
+              {/* Recent Alerts */}
+              <div className="tactical-panel" style={{ padding: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                  <Activity size={18} color="var(--accent-blue)" />
+                  <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', textTransform: 'uppercase' }}>Recent System Alerts</h2>
+                </div>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '500px', overflowY: 'auto' }} className="custom-scrollbar">
+                  {alerts.length === 0 ? (
+                    <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>No recent alerts.</div>
+                  ) : (
+                    alerts.map(alert => (
+                      <Link href={`/investigations/${alert._id}`} key={alert._id} style={{ textDecoration: 'none' }}>
+                        <div style={{ 
+                          padding: '16px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', 
+                          borderRadius: '6px', cursor: 'pointer', transition: 'border-color 0.2s'
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.borderColor = 'var(--accent-blue)'}
+                        onMouseOut={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '12px', color: 'var(--accent-yellow)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <Shield size={12} /> New Detection
+                            </span>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                              {new Date(alert.timestamp).toISOString().substring(11, 16)} UTC
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '14px', color: 'var(--text-primary)', marginBottom: '4px' }}>{alert.observation_id}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                            <MapPin size={12} /> Sentinel-1 SAR Overpass
+                          </div>
+                        </div>
+                      </Link>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
-
           </div>
-
-          {/* Spacer to push bottom section down */}
-          <div style={{ flex: 1 }}></div>
-
-          {/* Bottom Section: Timeline & Cards */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', pointerEvents: 'auto', width: '100%' }}>
-            <IncidentTimeline />
-            <ObservationCards />
-          </div>
-
         </div>
       </div>
-
-      {/* Observation Modal Overlay */}
-      {observationModalOpen && (
-        <div className="animate-fade-in" style={{
-          position: 'absolute', inset: 0, zIndex: 2000,
-          background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px'
-        }}>
-          <div className="tactical-panel" style={{ width: '100%', maxWidth: '1000px', height: '80vh', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)', textTransform: 'uppercase' }}>SAR Observation: Sentinel-1</h2>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>ID: OBS-20260824-001 • 10:30 UTC</div>
-              </div>
-              <div style={{ display: 'flex', gap: '16px' }}>
-                <button style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><Maximize2 size={20} /></button>
-                <button onClick={() => setObservationModalOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><X size={24} /></button>
-              </div>
-            </div>
-            <div style={{ flex: 1, padding: '24px', display: 'flex', gap: '24px' }}>
-              <div style={{ flex: 2, background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', borderRadius: '4px', position: 'relative' }}>
-                 {/* High-res image mock */}
-                 <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle, #2a2a2a 1px, transparent 1px)', backgroundSize: '4px 4px', opacity: 0.3 }}></div>
-                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                   <div style={{ width: '40%', height: '30%', border: '2px solid var(--accent-red)', borderRadius: '40% 60% 70% 30%', opacity: 0.8, boxShadow: '0 0 20px rgba(239,68,68,0.5) inset' }}></div>
-                 </div>
-              </div>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div className="tactical-panel" style={{ padding: '16px' }}>
-                  <h3 style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '12px' }}>Analysis Results</h3>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}><span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Detected Area</span><span className="tactical-text">13.8 km²</span></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}><span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Confidence Score</span><span className="tactical-text" style={{ color: 'var(--accent-green)' }}>91%</span></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Algorithm</span><span className="tactical-text">ARGUS-DeepSAR v2.1</span></div>
-                </div>
-                <button style={{ width: '100%', padding: '12px', background: 'var(--accent-blue)', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', marginTop: 'auto' }}>
-                  Generate Forensics Report
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }

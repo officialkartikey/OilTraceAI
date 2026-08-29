@@ -1,19 +1,37 @@
 import { Play, Calendar, Pause } from 'lucide-react';
-import { useDashboard } from '@/context/DashboardContext';
+import { useInvestigation } from '@/context/InvestigationContext';
 import { useState } from 'react';
 
 export default function IncidentTimeline() {
-  const { currentTime, setCurrentTime } = useDashboard();
+  const { data, selectedTime, setSelectedTime } = useInvestigation();
   const [isPlaying, setIsPlaying] = useState(false);
 
-  const events = [
-    { time: '08:15', label: 'Vessel Activity\nDetected' },
-    { time: '09:02', label: 'Anomaly\nDetected' },
-    { time: '09:37', label: 'Slick\nDetected' },
-    { time: '10:30', label: 'Current\nObservation' },
-    { time: '11:08', label: 'Reconstruction\nComplete' },
-    { time: '11:45', label: 'Attribution\nGenerated' },
-  ];
+  const observation = data?.observation;
+  
+  const generateEvents = () => {
+    if (!observation?.timestamp) return [];
+    
+    try {
+      const dt = new Date(observation.timestamp);
+      
+      const formatTime = (d: Date) => d.toISOString().substring(11, 16);
+      
+      const dtMinus1 = new Date(dt.getTime() - 60 * 60000);
+      const dtPlus1 = new Date(dt.getTime() + 30 * 60000);
+      const dtPlus2 = new Date(dt.getTime() + 60 * 60000);
+
+      return [
+        { time: formatTime(dtMinus1), label: 'Vessel Activity\nHindcast' },
+        { time: formatTime(dt), label: 'Slick\nDetected' },
+        { time: formatTime(dtPlus1), label: 'Reconstruction\nComplete' },
+        { time: formatTime(dtPlus2), label: 'Attribution\nGenerated' },
+      ];
+    } catch {
+      return [];
+    }
+  };
+
+  const events = generateEvents();
 
   return (
     <div className="tactical-panel" style={{ padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '32px' }}>
@@ -51,16 +69,18 @@ export default function IncidentTimeline() {
         
         {/* Timeline Events */}
         <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', position: 'relative', zIndex: 2 }}>
+          {events.length === 0 && (
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No timeline data available.</div>
+          )}
           {events.map((ev, i) => {
-            // Determine status based on currentTime string comparison (simplistic approach for demo)
-            const isCurrent = ev.time === currentTime;
-            const isPast = ev.time < currentTime;
-            const isFuture = ev.time > currentTime;
+            const isCurrent = selectedTime === ev.time || (!selectedTime && i === 1); 
+            const isPast = i < 1;
+            const isFuture = i > 1;
 
             return (
               <div 
                 key={i} 
-                onClick={() => setCurrentTime(ev.time)}
+                onClick={() => setSelectedTime(ev.time)}
                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', cursor: 'pointer' }}
               >
                 <div className="tactical-text" style={{ position: 'absolute', top: '-24px', color: isFuture ? 'var(--text-muted)' : 'var(--text-secondary)' }}>
@@ -68,9 +88,9 @@ export default function IncidentTimeline() {
                 </div>
                 <div style={{ 
                   width: '8px', height: '8px', borderRadius: '50%',
-                  background: isCurrent ? 'var(--accent-red)' : isPast ? 'var(--accent-blue)' : 'var(--bg-panel)',
-                  border: isCurrent ? '2px solid rgba(239, 68, 68, 0.4)' : isPast ? 'none' : '1px solid var(--border-color)',
-                  boxShadow: isCurrent ? '0 0 10px rgba(239,68,68,0.8)' : 'none',
+                  background: isCurrent ? 'var(--accent-yellow)' : isPast ? 'var(--accent-blue)' : 'var(--bg-panel)',
+                  border: isCurrent ? '2px solid rgba(234, 179, 8, 0.4)' : isPast ? 'none' : '1px solid var(--border-color)',
+                  boxShadow: isCurrent ? '0 0 10px rgba(234,179,8,0.8)' : 'none',
                   marginTop: '20px',
                   transition: 'all 0.3s'
                 }}></div>

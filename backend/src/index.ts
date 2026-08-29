@@ -5,6 +5,7 @@ import connectToDatabase from './lib/mongodb';
 import authRoutes from './routes/auth';
 import spillsRoutes from './routes/spills';
 import analysisRoutes from './routes/analysis';
+import { seedDeterministicAis } from './lib/seedAis';
 
 dotenv.config({ path: '.env.local' });
 dotenv.config();
@@ -26,6 +27,10 @@ const startServer = async () => {
   try {
     await connectToDatabase();
     console.log('Connected to Database');
+    
+    // Seed Demo Data
+    await seedDeterministicAis();
+
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });

@@ -1,172 +1,228 @@
 "use client";
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useInvestigation } from '@/context/InvestigationContext';
+import { Maximize2, Crosshair } from 'lucide-react';
 
 export default function SourceReconstruction() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { data } = useInvestigation();
+  const [isSimulating, setIsSimulating] = useState(true);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // High DPI Canvas setup
+    // Crisp high-DPI canvas
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
-    
-    // Set actual size in memory (scaled to account for extra padding during rotation)
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
-    
-    // Normalize coordinate system to use css pixels
     ctx.scale(dpr, dpr);
 
     const width = rect.width;
     const height = rect.height;
 
-    // Simulation parameters
-    const particles: any[] = [];
-    const originX = width * 0.6;
-    const originY = height * 0.4;
-    const windVx = -0.6; // Drift left
-    const windVy = 0.3;  // Drift down
-    const diffusion = 0.5; // Random scatter amount
+    // Simulation params
+    const env = data?.reconstruction?.environmentalInputs;
+    const windRad = (env?.windDirDeg || 220) * Math.PI / 180;
+    
+    // Core origin (Slick Source) - centered
+    const originX = width / 2;
+    const originY = height / 2;
 
-    let animationFrameId: number;
-
-    const spawnParticle = () => {
-      // Add multiple particles per frame for denser heatmap
-      for(let i=0; i<3; i++) {
-        particles.push({
-          x: originX + (Math.random() - 0.5) * 10,
-          y: originY + (Math.random() - 0.5) * 10,
-          vx: windVx + (Math.random() - 0.5) * diffusion,
-          vy: windVy + (Math.random() - 0.5) * diffusion,
-          life: 0,
-          maxLife: 100 + Math.random() * 100
-        });
-      }
-    };
+    let frame = 0;
+    let animationId: number;
 
     const render = () => {
-      // Trail effect
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.2)'; // Dark slate background with opacity for trails
-      ctx.fillRect(0, 0, width, height);
+      frame++;
+      
+      // Clear background
+      ctx.clearRect(0, 0, width, height);
 
-      spawnParticle();
-
-      // Update and draw particles
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.life++;
-        
-        // Add some noise to movement
-        p.vx += (Math.random() - 0.5) * 0.1;
-        p.vy += (Math.random() - 0.5) * 0.1;
-        
-        p.x += p.vx;
-        p.y += p.vy;
-
-        // Color based on age (heatmap effect: Red -> Yellow -> Green -> Blue)
-        const ageRatio = p.life / p.maxLife;
-        let color = '';
-        if (ageRatio < 0.2) color = 'rgba(239, 68, 68, 0.8)'; // Red
-        else if (ageRatio < 0.5) color = 'rgba(234, 179, 8, 0.6)'; // Yellow
-        else if (ageRatio < 0.8) color = 'rgba(34, 197, 94, 0.4)'; // Green
-        else color = 'rgba(14, 165, 233, 0.2)'; // Blue
-
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 2 + (ageRatio * 3), 0, Math.PI * 2);
-        ctx.fillStyle = color;
-        ctx.fill();
-
-        // Remove dead particles
-        if (p.life >= p.maxLife) {
-          particles.splice(i, 1);
-        }
-      }
-
-      // Draw origin marker (The Slick)
+      // 1. Draw subtle tactical grid
+      ctx.strokeStyle = 'rgba(14, 165, 233, 0.08)';
+      ctx.lineWidth = 1;
+      const gridSize = 25;
       ctx.beginPath();
-      ctx.arc(originX, originY, 4, 0, Math.PI * 2);
-      ctx.fillStyle = '#fff';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(239, 68, 68, 0.8)';
-      ctx.lineWidth = 2;
+      for (let x = 0; x <= width; x += gridSize) {
+        ctx.moveTo(x, 0); ctx.lineTo(x, height);
+      }
+      for (let y = 0; y <= height; y += gridSize) {
+        ctx.moveTo(0, y); ctx.lineTo(width, y);
+      }
       ctx.stroke();
 
-      animationFrameId = requestAnimationFrame(render);
+      // 2. Draw Probability Contours (Heatmap)
+      // We'll draw 4 concentric blob-like shapes representing probability zones
+      // Outer (Low Prob - Blue)
+      ctx.beginPath();
+      ctx.ellipse(originX - 10, originY + 15, 120, 80, windRad, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(14, 165, 233, 0.15)';
+      ctx.fill();
+
+      // Mid-Low (Green)
+      ctx.beginPath();
+      ctx.ellipse(originX - 5, originY + 8, 80, 50, windRad, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(34, 197, 94, 0.2)';
+      ctx.fill();
+
+      // Mid-High (Yellow)
+      ctx.beginPath();
+      ctx.ellipse(originX - 2, originY + 3, 40, 25, windRad, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(234, 179, 8, 0.3)';
+      ctx.fill();
+
+      // High (Red Source)
+      ctx.beginPath();
+      ctx.ellipse(originX, originY, 15, 10, windRad, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.5)';
+      ctx.fill();
+
+      // 3. Draw Crosshairs at Origin
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(originX - 15, originY); ctx.lineTo(originX + 15, originY);
+      ctx.moveTo(originX, originY - 15); ctx.lineTo(originX, originY + 15);
+      ctx.stroke();
+      
+      // Center dot
+      ctx.beginPath();
+      ctx.arc(originX, originY, 2, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+
+      // 4. Draw Radar Sweep (if simulating)
+      if (isSimulating) {
+        const sweepAngle = (frame * 0.02) % (Math.PI * 2);
+        const sweepLength = 150;
+        
+        ctx.save();
+        ctx.translate(originX, originY);
+        ctx.rotate(sweepAngle);
+        
+        // Sweep gradient
+        const grad = ctx.createLinearGradient(0, 0, 0, sweepLength);
+        grad.addColorStop(0, 'rgba(14, 165, 233, 0)');
+        grad.addColorStop(1, 'rgba(14, 165, 233, 0.3)');
+        
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, sweepLength, 0, 0.4);
+        ctx.lineTo(0, 0);
+        ctx.fillStyle = grad;
+        ctx.fill();
+        
+        // Leading edge line
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(0.4)*sweepLength, Math.sin(0.4)*sweepLength);
+        ctx.strokeStyle = 'rgba(14, 165, 233, 0.8)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        
+        ctx.restore();
+      }
+
+      // 5. Vector arrows (showing drift direction)
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.lineWidth = 1.5;
+      const arrowLength = 30;
+      const startX = originX - Math.cos(windRad) * 60;
+      const startY = originY - Math.sin(windRad) * 60;
+      const endX = startX - Math.cos(windRad) * arrowLength;
+      const endY = startY - Math.sin(windRad) * arrowLength;
+      
+      // Arrow line
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(endX, endY);
+      ctx.stroke();
+      
+      // Arrow head
+      ctx.beginPath();
+      ctx.moveTo(endX, endY);
+      ctx.lineTo(endX + Math.cos(windRad - 0.5) * 8, endY + Math.sin(windRad - 0.5) * 8);
+      ctx.moveTo(endX, endY);
+      ctx.lineTo(endX + Math.cos(windRad + 0.5) * 8, endY + Math.sin(windRad + 0.5) * 8);
+      ctx.stroke();
+
+      animationId = requestAnimationFrame(render);
     };
 
     render();
 
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, []);
+    return () => cancelAnimationFrame(animationId);
+  }, [data, isSimulating]);
 
   return (
-    <div className="tactical-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-        <h3 style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-          Source Reconstruction
-        </h3>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent-green)', animation: 'pulse-fast 1s infinite' }}></div>
-          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Simulating Hindcast</div>
+    <div className="tactical-panel" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Header */}
+      <div style={{ 
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+        padding: '16px 20px', borderBottom: '1px solid rgba(14, 165, 233, 0.1)',
+        background: 'rgba(0,0,0,0.3)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Crosshair size={16} color="var(--accent-blue)" />
+          <h3 style={{ fontSize: '11px', fontWeight: 600, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Source Reconstruction
+          </h3>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: isSimulating ? 'var(--accent-green)' : 'var(--text-muted)', animation: isSimulating ? 'pulse-fast 1.5s infinite' : 'none' }}></div>
+            <div style={{ fontSize: '9px', color: isSimulating ? 'var(--accent-green)' : 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              {isSimulating ? 'Hindcast Active' : 'Paused'}
+            </div>
+          </div>
+          <button 
+            onClick={() => setIsSimulating(!isSimulating)}
+            style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex' }}
+          >
+            <Maximize2 size={14} />
+          </button>
         </div>
       </div>
       
-      {/* 3D Simulation Container */}
-      <div style={{ 
-        position: 'relative', 
-        height: '180px', 
-        background: 'rgba(0,0,0,0.5)', 
-        border: '1px solid var(--border-color)', 
-        borderRadius: '6px',
-        overflow: 'hidden',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        {/* The tactical grid */}
-        <div style={{
-          position: 'absolute',
-          width: '150%',
-          height: '150%',
-          backgroundSize: '20px 20px',
-          backgroundImage: 'linear-gradient(to right, rgba(14, 165, 233, 0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(14, 165, 233, 0.1) 1px, transparent 1px)',
-          transform: 'rotateX(60deg) rotateZ(-45deg)',
-          transformOrigin: 'center',
-          pointerEvents: 'none'
-        }}></div>
+      {/* 2D Simulation Container */}
+      <div style={{ position: 'relative', height: '220px', background: '#030712' }}>
         
-        {/* Dynamic Canvas Simulation */}
-        <canvas 
-          ref={canvasRef} 
-          style={{
-            position: 'absolute',
-            width: '150%', // Oversized to prevent clipping during rotation
-            height: '150%',
-            transform: 'rotateX(60deg) rotateZ(-45deg)', // Projects 2D sim into 3D space!
-            transformOrigin: 'center',
-            filter: 'blur(1px)' // Slight blur for liquid feel
-          }}
-        />
-
-        {/* Legend */}
-        <div style={{ position: 'absolute', right: '12px', bottom: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'rgba(0,0,0,0.6)', padding: '6px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
-          <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginBottom: '4px' }}>Probability</div>
-          <div style={{ fontSize: '9px', color: 'var(--text-secondary)', marginBottom: '2px' }}>High</div>
-          <div style={{ 
-            width: '12px', 
-            height: '60px', 
-            background: 'linear-gradient(to bottom, #ef4444, #eab308, #22c55e, #0ea5e9)',
-            borderRadius: '2px'
-          }}></div>
-          <div style={{ fontSize: '9px', color: 'var(--text-secondary)', marginTop: '2px' }}>Low</div>
+        {/* HUD Overlay Top Left */}
+        <div style={{ position: 'absolute', top: '12px', left: '16px', display: 'flex', flexDirection: 'column', gap: '4px', zIndex: 10 }}>
+          <div style={{ fontSize: '10px', color: 'var(--text-primary)', fontWeight: 600, letterSpacing: '0.5px' }}>PROBABILITY MAP</div>
+          <div style={{ fontSize: '9px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>RES: 10m/px • T-12H</div>
         </div>
+
+        {/* Dynamic Canvas Simulation */}
+        <div style={{ position: 'absolute', inset: 0 }}>
+          <canvas 
+            ref={canvasRef} 
+            style={{ width: '100%', height: '100%', display: 'block' }}
+          />
+        </div>
+
+        {/* Legend Bottom Right */}
+        <div style={{ 
+          position: 'absolute', right: '16px', bottom: '16px', 
+          display: 'flex', flexDirection: 'column', alignItems: 'flex-end', 
+          zIndex: 10, background: 'rgba(0,0,0,0.6)', padding: '8px 12px', borderRadius: '4px',
+          border: '1px solid rgba(255,255,255,0.05)'
+        }}>
+          <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Origin Probability</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '9px', color: 'var(--text-secondary)' }}>0%</span>
+            <div style={{ 
+              width: '80px', height: '4px', 
+              background: 'linear-gradient(to right, #0ea5e9, #22c55e, #eab308, #ef4444)',
+              borderRadius: '2px'
+            }}></div>
+            <span style={{ fontSize: '9px', color: 'var(--text-primary)', fontWeight: 600 }}>100%</span>
+          </div>
+        </div>
+
       </div>
     </div>
   );

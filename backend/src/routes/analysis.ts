@@ -4,7 +4,9 @@ import axios from 'axios';
 import FormData from 'form-data';
 import fs from 'fs';
 import PDFDocument from 'pdfkit';
+import mongoose from 'mongoose';
 import { Incident } from '../models/Incident';
+import { AisRecord } from '../models/AisRecord';
 import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
@@ -58,7 +60,6 @@ router.post('/detect', async (req, res) => {
     if (spill_lon) formData.append('spill_lon', spill_lon);
 
     // Call ML Model
-    // Wait for actual ML response. If ML is down, catch error.
     let mlResponse;
     try {
       const response = await axios.post(`${ML_API_URL}/analyze`, formData, {
@@ -67,13 +68,16 @@ router.post('/detect', async (req, res) => {
       mlResponse = response.data;
     } catch (mlError: any) {
       console.warn('ML Model unavailable, using mock response:', mlError.message);
-      // Mock response as provided by the user
       mlResponse = {
         observation_id: `OBS-${Date.now()}`,
-        observation: { satellite: "Sentinel-1", timestamp: new Date().toISOString() },
+        observation: { satellite: "Sentinel-1", timestamp: spill_time || new Date().toISOString() },
         detection: { slick_detected: true, confidence: 0.976, area_pct: 10.71 },
         drift: { origin: { lat: 19.05, lon: 72.85 }, trajectory: [] },
-        attribution: { suspects: [{ mmsi: "123456789", score: 0.88 }] }
+        attribution: { suspects: [
+          { mmsi: "123456789", score: 0.91, evidence: { spatial: 0.92, temporal: 0.96, drift: 0.89, trajectory: 0.91, aisQuality: 0.97 } },
+          { mmsi: "987654321", score: 0.72, evidence: { spatial: 0.85, temporal: 0.60, drift: 0.70, trajectory: 0.80, aisQuality: 0.90 } },
+          { mmsi: "567891234", score: 0.48, evidence: { spatial: 0.40, temporal: 0.90, drift: 0.30, trajectory: 0.50, aisQuality: 0.95 } }
+        ] }
       };
     }
 
@@ -163,6 +167,73 @@ router.get('/alerts', async (req, res) => {
     return res.json({ success: true, alerts });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: 'Failed to fetch alerts' });
+  }
+});
+
+router.get('/investigation/:id', async (req, res) => {
+  try {
+    const query = mongoose.Types.ObjectId.isValid(req.params.id) 
+      ? { _id: req.params.id }
+      : { observation_id: req.params.id };
+
+    const incident = await Incident.findOne(query);
+    if (!incident) return res.status(404).json({ success: false, message: 'Investigation not found' });
+
+    const obsTime = new Date(incident.timestamp);
+    // 2 hours before, 30 mins after
+    const startTime = new Date(obsTime.getTime() - 2 * 60 * 60 * 1000);
+    const endTime = new Date(obsTime.getTime() + 30 * 60 * 1000);
+
+    // Fetch AIS records in time window
+    const aisRecords = await AisRecord.find({
+      timestamp: { $gte: startTime, $lte: endTime }
+    }).sort({ timestamp: 1 });
+
+    // Group into tracks
+    const tracksMap = new Map<string, any>();
+    aisRecords.forEach(record => {
+      if (!tracksMap.has(record.vessel_id)) {
+        tracksMap.set(record.vessel_id, {
+          vesselId: record.vessel_id,
+          name: record.name,
+          mmsi: record.mmsi,
+          imo: record.imo,
+          vesselType: record.vessel_type,
+          positions: []
+        });
+      }
+      tracksMap.get(record.vessel_id).positions.push({
+        timestamp: record.timestamp.toISOString(),
+        lat: record.location.coordinates[1],
+        lon: record.location.coordinates[0],
+        speed: record.speed,
+        heading: record.heading
+      });
+    });
+
+    const response = {
+      investigation: { id: incident._id, status: incident.status },
+      observation: { id: incident.observation_id, timestamp: incident.timestamp, satellite: incident.satellite, image_file: incident.image_file },
+      detection: incident.detection,
+      ais: {
+        source: 'mongodb',
+        window: { start: startTime.toISOString(), end: endTime.toISOString() },
+        tracks: Array.from(tracksMap.values())
+      },
+      reconstruction: {
+        sourceRegion: {
+          probability: 0.87,
+          geometry: { type: 'Point', coordinates: [72.85, 19.05] } // simplified
+        }
+      },
+      candidates: incident.attribution?.suspects || [],
+      timeline: []
+    };
+
+    return res.json({ success: true, data: response });
+  } catch (error: any) {
+    console.error('Failed to fetch investigation:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch investigation' });
   }
 });
 

@@ -1,17 +1,23 @@
-import { useState } from 'react';
-import { Search, Bell, Maximize, ChevronDown, Check } from 'lucide-react';
-import { useDashboard } from '@/context/DashboardContext';
+import { useState, useEffect } from 'react';
+import { Search, Bell, Maximize, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 
-export default function Header() {
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const { activeInvestigation, setActiveInvestigation } = useDashboard();
+interface HeaderProps {
+  title?: string;
+  backLink?: string;
+}
+
+export default function Header({ title = 'ARGUS', backLink }: HeaderProps) {
   const [searchFocused, setSearchFocused] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [now, setNow] = useState<Date | null>(null);
 
-  const investigations = [
-    'IN-2026-08-24-1030',
-    'IN-2026-08-23-0915',
-    'IN-2026-08-20-1422'
-  ];
+  useEffect(() => {
+    setMounted(true);
+    setNow(new Date());
+    const interval = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <header style={{
@@ -19,127 +25,120 @@ export default function Header() {
       top: 0,
       left: 0,
       right: 0,
-      height: '80px',
+      height: '64px',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '0 32px',
+      padding: '0 24px',
       zIndex: 1000,
-      pointerEvents: 'none'
+      background: 'linear-gradient(180deg, rgba(5, 10, 20, 0.9) 0%, rgba(5, 10, 20, 0.4) 100%)',
+      backdropFilter: 'blur(12px)',
+      borderBottom: '1px solid rgba(14, 165, 233, 0.2)',
+      boxShadow: '0 4px 24px -4px rgba(0, 0, 0, 0.5)',
+      pointerEvents: 'auto'
     }}>
       
-      {/* Left side: Investigation Dropdown */}
-      <div style={{ pointerEvents: 'auto', position: 'relative' }}>
-        <div 
-          className="tactical-panel" 
-          onClick={() => setDropdownOpen(!dropdownOpen)}
-          style={{ 
-            display: 'flex', alignItems: 'center', padding: '8px 16px', gap: '16px', cursor: 'pointer',
-            background: dropdownOpen ? 'var(--bg-panel-hover)' : 'var(--bg-panel)',
-            transition: 'background 0.2s'
-          }}
-        >
-          <div>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Active Investigation</div>
-            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>{activeInvestigation}</div>
-          </div>
-          <ChevronDown size={16} color="var(--text-muted)" style={{ transform: dropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-        </div>
+      {/* HUD Accents */}
+      <div style={{ position: 'absolute', bottom: -1, left: 0, width: '120px', height: '1px', background: 'var(--accent-blue)', boxShadow: '0 0 8px var(--accent-blue)' }}></div>
+      <div style={{ position: 'absolute', bottom: -1, right: 0, width: '120px', height: '1px', background: 'var(--accent-blue)', boxShadow: '0 0 8px var(--accent-blue)' }}></div>
 
-        {/* Dropdown Menu */}
-        {dropdownOpen && (
-          <div className="tactical-panel animate-fade-in" style={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            marginTop: '8px',
-            width: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden'
-          }}>
-            {investigations.map(inv => (
-              <div 
-                key={inv}
-                onClick={() => {
-                  setActiveInvestigation(inv);
-                  setDropdownOpen(false);
-                }}
-                style={{ 
-                  padding: '12px 16px', 
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  background: activeInvestigation === inv ? 'rgba(14, 165, 233, 0.1)' : 'transparent',
-                  borderBottom: '1px solid rgba(255,255,255,0.05)'
-                }}
-                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                onMouseOut={(e) => {
-                  if (activeInvestigation !== inv) e.currentTarget.style.background = 'transparent';
-                  else e.currentTarget.style.background = 'rgba(14, 165, 233, 0.1)';
-                }}
-              >
-                <span style={{ fontSize: '12px', color: activeInvestigation === inv ? 'var(--accent-blue)' : 'var(--text-primary)' }}>
-                  {inv}
-                </span>
-                {activeInvestigation === inv && <Check size={14} color="var(--accent-blue)" />}
-              </div>
-            ))}
-          </div>
+      {/* Left side: Title and Back Link */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+        {backLink && (
+          <Link href={backLink} style={{ 
+            color: 'var(--text-secondary)', 
+            transition: 'all 0.2s', 
+            display: 'flex', 
+            alignItems: 'center',
+            padding: '8px',
+            background: 'rgba(255,255,255,0.05)',
+            borderRadius: '4px'
+          }}
+          onMouseOver={(e) => { e.currentTarget.style.color = 'white'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}
+          onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}>
+            <ArrowLeft size={18} />
+          </Link>
         )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ 
+            width: '4px', height: '24px', 
+            background: 'var(--accent-blue)', 
+            borderRadius: '2px',
+            boxShadow: '0 0 8px var(--accent-blue)'
+          }}></div>
+          <div>
+            <div style={{ fontSize: '9px', letterSpacing: '1px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '2px' }}>Active Session</div>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: '#fff', letterSpacing: '0.5px' }}>{title.toUpperCase()}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Middle: Optional Status Indicator */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(16, 185, 129, 0.1)', padding: '6px 12px', borderRadius: '4px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent-green)', boxShadow: '0 0 6px var(--accent-green)' }}></div>
+        <span style={{ fontSize: '10px', color: 'var(--accent-green)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>Secure Uplink</span>
       </div>
 
       {/* Right side: Time and Icons */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '32px', pointerEvents: 'auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
         
         {/* Date Time display */}
-        <div className="tactical-text" style={{ display: 'flex', gap: '12px', color: 'var(--text-primary)' }}>
-          <span>24 Aug 2026</span>
-          <span style={{ color: 'var(--text-muted)' }}>•</span>
-          <span>10:30:00 UTC</span>
+        <div className="tactical-text" style={{ 
+          display: 'flex', gap: '16px', color: 'var(--text-primary)', 
+          background: 'rgba(0,0,0,0.4)', padding: '6px 16px', borderRadius: '4px',
+          border: '1px solid rgba(255,255,255,0.05)'
+        }}>
+          {mounted && now ? (
+            <>
+              <span style={{ color: 'var(--text-secondary)' }}>{now.toISOString().substring(0, 10)}</span>
+              <span style={{ color: '#fff', fontWeight: 500, letterSpacing: '1px' }}>{now.toISOString().substring(11, 19)} <span style={{ color: 'var(--text-muted)', fontSize: '10px' }}>UTC</span></span>
+            </>
+          ) : (
+            <span style={{ opacity: 0 }}>Loading...</span>
+          )}
         </div>
 
         {/* Action Icons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px', position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', position: 'relative' }}>
           
           <div style={{ position: 'relative' }}>
             <button 
               onClick={() => setSearchFocused(!searchFocused)}
-              style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', transition: 'color 0.2s' }}
-              onMouseOver={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
-              onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+              style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', padding: '6px', borderRadius: '4px' }}
+              onMouseOver={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+              onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.background = 'transparent' }}
             >
-              <Search size={20} />
+              <Search size={18} />
             </button>
             {searchFocused && (
-              <div className="tactical-panel animate-fade-in" style={{ position: 'absolute', right: 0, top: '40px', width: '300px', padding: '12px' }}>
-                <input autoFocus type="text" placeholder="Search MMSI, Call Sign, Area..." style={{ width: '100%', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', padding: '8px', borderRadius: '4px', outline: 'none', fontFamily: 'inherit' }} />
+              <div className="tactical-panel animate-fade-in" style={{ position: 'absolute', right: 0, top: '48px', width: '300px', padding: '12px' }}>
+                <input autoFocus type="text" placeholder="Search MMSI, Call Sign, Area..." style={{ width: '100%', background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', color: 'white', padding: '8px', borderRadius: '4px', outline: 'none', fontFamily: 'inherit', fontSize: '12px' }} />
               </div>
             )}
           </div>
 
-          <button style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', position: 'relative', transition: 'color 0.2s' }}
-            onMouseOver={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
-            onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+          <button style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', position: 'relative', transition: 'all 0.2s', display: 'flex', padding: '6px', borderRadius: '4px' }}
+            onMouseOver={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+            onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.background = 'transparent' }}
           >
-            <Bell size={20} />
+            <Bell size={18} />
             <span style={{
               position: 'absolute',
-              top: '0',
-              right: '0',
+              top: '4px',
+              right: '4px',
               background: 'var(--accent-red)',
               width: '6px',
               height: '6px',
               borderRadius: '50%',
+              boxShadow: '0 0 6px var(--accent-red)'
             }}></span>
           </button>
           
-          <button style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', transition: 'color 0.2s' }}
-            onMouseOver={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
-            onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+          <button style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', padding: '6px', borderRadius: '4px' }}
+            onMouseOver={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+            onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.background = 'transparent' }}
           >
-            <Maximize size={20} />
+            <Maximize size={18} />
           </button>
         </div>
         
