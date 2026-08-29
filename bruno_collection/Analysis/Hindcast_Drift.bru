@@ -1,0 +1,17 @@
+meta {
+  name: Hindcast Drift
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://localhost:5000/api/hindcast
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "incidentId": "YOUR_INCIDENT_ID"
+  }
+}
