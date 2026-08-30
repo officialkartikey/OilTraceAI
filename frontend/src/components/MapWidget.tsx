@@ -41,7 +41,7 @@ export default function MapWidget({ investigationData, selectedVessel, activeAle
   });
 
   const aisTracks = investigationData?.ais?.tracks || [];
-  const candidates = investigationData?.candidates || [];
+  const candidates = investigationData?.attribution?.suspects || [];
   const candidateIds = new Set(candidates.map((c: any) => c.mmsi || c.vesselId));
 
   return (
@@ -67,9 +67,9 @@ export default function MapWidget({ investigationData, selectedVessel, activeAle
               const area = activeAlert.detection?.area_pct || investigationData?.detection?.area_pct || 10;
               const radius = Math.sqrt(area / Math.PI) * 1000;
               
-              const reconRegion = investigationData?.reconstruction?.sourceRegion;
-              const sourceLat = reconRegion?.geometry?.coordinates?.[1] || lat - 0.1;
-              const sourceLon = reconRegion?.geometry?.coordinates?.[0] || lon - 0.1;
+              const origin = investigationData?.drift?.hindcast?.estimated_origin;
+              const sourceLat = origin?.lat || lat - 0.1;
+              const sourceLon = origin?.lon || lon - 0.1;
 
               return (
                 <React.Fragment>
@@ -94,10 +94,7 @@ export default function MapWidget({ investigationData, selectedVessel, activeAle
                       />
                       {/* Backward Drift Path */}
                       <Polyline 
-                        positions={[
-                          [sourceLat, sourceLon],
-                          [lat, lon]
-                        ]} 
+                        positions={investigationData?.drift?.hindcast?.track ? investigationData.drift.hindcast.track.map(p => [p.lat, p.lon] as [number, number]) : [[sourceLat, sourceLon], [lat, lon]]} 
                         color="var(--accent-yellow)" 
                         weight={2} 
                         dashArray="2, 6" 

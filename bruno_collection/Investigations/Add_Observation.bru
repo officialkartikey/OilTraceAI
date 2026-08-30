@@ -1,0 +1,22 @@
+meta {
+  name: Add Observation
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:8080/api/v1/investigations/{{inv_id}}/observations
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  timestamp: 2025-01-01T10:30:00Z
+  sensor: SAR
+  resolution_m: 10.0
+  file: @file(C:\Users\user\Downloads\demo_images\demo_images\image_test_oil_00001_448_0.png) @contentType(image/png)
+}
+
+vars:pre-request {
+  inv_id: 6a946fa079487a5b55ac0893
+}

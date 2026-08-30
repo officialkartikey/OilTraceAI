@@ -9,7 +9,7 @@ export default function ObservationCards() {
 
   const observation = data.observation;
   const detection = data.detection;
-  const suspects = data.candidates || [];
+  const suspects = data.attribution?.suspects || [];
   const imageUrl = observation?.image_file || '';
   
   const timestamp = observation?.timestamp ? new Date(observation.timestamp) : new Date();
@@ -23,7 +23,7 @@ export default function ObservationCards() {
     { time: 'T-90', probability: 0.15 },
     { time: 'T-60', probability: 0.35 },
     { time: 'T-30', probability: 0.75 },
-    { time: 'T-0', probability: suspects[0]?.score || 0.87 },
+    { time: 'T-0', probability: suspects[0]?.suspect_score || 0.87 },
   ];
 
   return (
@@ -120,7 +120,7 @@ export default function ObservationCards() {
         <div style={{ position: 'relative', flex: 1 }}>
           <div style={{ position: 'absolute', top: 0, left: 0, zIndex: 10 }}>
             <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Top Suspect Probability</div>
-            <div className="tactical-text" style={{ fontSize: '20px', color: 'var(--accent-red)', fontWeight: 600 }}>{suspects[0]?.score?.toFixed(2) || '0.00'}</div>
+            <div className="tactical-text" style={{ fontSize: '20px', color: 'var(--accent-red)', fontWeight: 600 }}>{suspects[0]?.suspect_score?.toFixed(2) || '0.00'}</div>
           </div>
           <div style={{ width: '100%', height: '100px', marginTop: '20px' }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -128,7 +128,7 @@ export default function ObservationCards() {
                 <XAxis dataKey="time" stroke="var(--text-muted)" fontSize={9} tickLine={false} axisLine={false} />
                 <YAxis hide domain={[0, 1]} />
                 <Line type="monotone" dataKey="probability" stroke="var(--accent-red)" strokeWidth={2} dot={{ r: 3, fill: 'var(--bg-panel)', stroke: 'var(--accent-red)' }} />
-                <ReferenceLine y={suspects[0]?.score || 0.87} stroke="var(--accent-red)" strokeDasharray="3 3" opacity={0.3} />
+                <ReferenceLine y={suspects[0]?.suspect_score || 0.87} stroke="var(--accent-red)" strokeDasharray="3 3" opacity={0.3} />
               </LineChart>
             </ResponsiveContainer>
           </div>

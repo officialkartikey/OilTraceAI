@@ -25,8 +25,8 @@ export default function SourceReconstruction() {
     const height = rect.height;
 
     // Simulation params
-    const env = data?.reconstruction?.environmentalInputs;
-    const windRad = (env?.windDirDeg || 220) * Math.PI / 180;
+    const env = data?.drift?.environmental_inputs;
+    const windRad = (env?.wind_dir_deg || 220) * Math.PI / 180;
     
     // Core origin (Slick Source) - centered
     const originX = width / 2;

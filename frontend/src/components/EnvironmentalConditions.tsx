@@ -3,7 +3,7 @@ import { useInvestigation } from '@/context/InvestigationContext';
 
 export default function EnvironmentalConditions() {
   const { data } = useInvestigation();
-  const env = data?.reconstruction?.environmentalInputs || {};
+  const env: any = data?.drift?.environmental_inputs || {};
 
   return (
     <div className="tactical-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -22,8 +22,8 @@ export default function EnvironmentalConditions() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Wind size={16} color="var(--accent-blue)" />
             <div className="tactical-text">
-              <span style={{ fontSize: '16px', color: 'var(--text-primary)' }}>{env.windSpeedKn ? env.windSpeedKn.toFixed(1) : '--'}</span> kn
-              <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{env.windDirDeg ? env.windDirDeg.toFixed(0) + '°' : '--'}</div>
+              <span style={{ fontSize: '16px', color: 'var(--text-primary)' }}>{env.wind_speed_kn ? env.wind_speed_kn.toFixed(1) : '--'}</span> kn
+              <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{env.wind_dir_deg ? env.wind_dir_deg.toFixed(0) + '°' : '--'}</div>
             </div>
           </div>
         </div>
@@ -34,8 +34,8 @@ export default function EnvironmentalConditions() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Navigation size={16} color="var(--accent-blue)" style={{ transform: 'rotate(45deg)' }} />
             <div className="tactical-text">
-              <span style={{ fontSize: '16px', color: 'var(--text-primary)' }}>{env.currentSpeedKn ? env.currentSpeedKn.toFixed(1) : '--'}</span> kn
-              <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{env.currentDirDeg ? env.currentDirDeg.toFixed(0) + '°' : '--'}</div>
+              <span style={{ fontSize: '16px', color: 'var(--text-primary)' }}>{env.current_speed_kn ? env.current_speed_kn.toFixed(1) : '--'}</span> kn
+              <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{env.current_dir_deg ? env.current_dir_deg.toFixed(0) + '°' : '--'}</div>
             </div>
           </div>
         </div>

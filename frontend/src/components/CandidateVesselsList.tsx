@@ -3,7 +3,7 @@ import { useInvestigation } from '@/context/InvestigationContext';
 export default function CandidateVesselsList() {
   const { data, selectedVessel, setSelectedVessel } = useInvestigation();
   
-  const suspects = data?.candidates || [];
+  const suspects = data?.attribution?.suspects || [];
 
   return (
     <div className="tactical-panel" style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -24,7 +24,7 @@ export default function CandidateVesselsList() {
         {suspects.map((v, index) => {
           const imoStr = String(v.mmsi);
           const isSelected = selectedVessel === imoStr;
-          const score = v.score || 0;
+          const score = v.suspect_score || 0;
           
           let color = 'var(--accent-green)';
           if (score > 0.8) color = 'var(--accent-red)';

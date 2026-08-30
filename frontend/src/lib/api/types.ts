@@ -29,9 +29,11 @@ export interface CandidateEvidence {
 }
 
 export interface CandidateVessel {
-  mmsi: string;
-  score: number;
-  evidence: CandidateEvidence;
+  mmsi: string | number;
+  suspect_score: number;
+  proximity_km: number;
+  time_offset_hr: number;
+  flags: string[];
 }
 
 export interface AttributionResult {
@@ -64,19 +66,25 @@ export interface InvestigationDetailResponse {
     window: { start: string; end: string };
     tracks: VesselTrack[];
   };
-  reconstruction: {
-    sourceRegion: {
-      probability: number;
-      geometry: { type: string; coordinates: number[] };
+  drift: {
+    environmental_inputs: {
+      current_speed_kn: number;
+      current_dir_deg: number;
+      wind_speed_kn: number;
+      wind_dir_deg: number;
     };
-    environmentalInputs?: {
-      windDirDeg?: number;
-      windSpeedKn?: number;
-      currentDirDeg?: number;
-      currentSpeedKn?: number;
+    hindcast: {
+      estimated_origin: Point;
+      estimated_origin_time: string;
+      track: { time: string; lat: number; lon: number }[];
+    };
+    forecast: {
+      horizon_hours: number;
+      predicted_position: { lat: number; lon: number; time: string };
+      track: { time: string; lat: number; lon: number }[];
     };
   };
-  candidates: CandidateVessel[];
+  attribution: AttributionResult;
   timeline: any[];
 }
 
