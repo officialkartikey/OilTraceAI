@@ -8,3 +8,5 @@ geojson
 python-dotenv
 pytest
 pytest-asyncio
+
+cloudinary==1.36.0

@@ -36,8 +36,17 @@ async def get_investigation(id: str):
     return inv
 
 from fastapi import UploadFile, File, Form
-import shutil
-import os
+import cloudinary
+import cloudinary.uploader
+from app.core.config import settings
+
+# Configure Cloudinary using settings
+cloudinary.config( 
+    cloud_name = settings.cloudinary_cloud_name, 
+    api_key = settings.cloudinary_api_key, 
+    api_secret = settings.cloudinary_api_secret,
+    secure=True
+)
 
 @router.post("/{id}/observations", response_model=Observation)
 async def add_observation(
@@ -51,13 +60,16 @@ async def add_observation(
     if not inv:
         raise HTTPException(status_code=404, detail="Investigation not found")
         
-    # Save the uploaded file locally for the prototype
-    upload_dir = os.path.join(os.getcwd(), "uploads")
-    os.makedirs(upload_dir, exist_ok=True)
-    file_path = os.path.join(upload_dir, file.filename)
-    
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    # Upload the file to Cloudinary
+    try:
+        upload_result = cloudinary.uploader.upload(
+            file.file,
+            folder="kairos_observations"
+        )
+        image_url = upload_result.get("secure_url")
+    except Exception as e:
+        logger.error(f"Cloudinary upload failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to upload image")
         
     # Create the observation
     from datetime import datetime
@@ -70,7 +82,7 @@ async def add_observation(
         timestamp=datetime.fromisoformat(timestamp.replace("Z", "+00:00")),
         sensor=sensor,
         resolution_m=resolution_m,
-        image_reference=file_path,
+        image_reference=image_url,
         geospatial_bounds=dummy_bounds
     )
     
