@@ -49,7 +49,7 @@ export default function SignupPage() {
           <Shield size={28} color="var(--accent-blue)" />
         </div>
         
-        <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '2px', color: 'var(--text-primary)', marginBottom: '8px' }}>ARGUS SIGNUP</h1>
+        <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '2px', color: 'var(--text-primary)', marginBottom: '8px' }}>Kairos SIGNUP</h1>
         <p style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '32px' }}>Request Access Credentials</p>
 
         {error && (

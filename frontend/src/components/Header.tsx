@@ -7,7 +7,7 @@ interface HeaderProps {
   backLink?: string;
 }
 
-export default function Header({ title = 'ARGUS', backLink }: HeaderProps) {
+export default function Header({ title = 'Kairos', backLink }: HeaderProps) {
   const [searchFocused, setSearchFocused] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [now, setNow] = useState<Date | null>(null);

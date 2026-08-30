@@ -1,6 +1,6 @@
-# ARGUS API & Data Flow Documentation
+# Kairos API & Data Flow Documentation
 
-This document explains the core investigation pipeline for the ARGUS backend. The backend acts as an orchestrator, connecting the frontend, the Machine Learning service, physics engines, and MongoDB.
+This document explains the core investigation pipeline for the Kairos backend. The backend acts as an orchestrator, connecting the frontend, the Machine Learning service, physics engines, and MongoDB.
 
 ## Data Flow Pipeline
 

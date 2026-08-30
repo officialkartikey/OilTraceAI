@@ -4,7 +4,7 @@ import Sidebar from "@/components/Sidebar";
 import { Providers } from "@/components/Providers";
 
 export const metadata: Metadata = {
-  title: "ARGUS | Tactical Dashboard",
+  title: "Kairos | Tactical Dashboard",
   description: "Maritime Intelligence & Source Attribution System",
 };
 

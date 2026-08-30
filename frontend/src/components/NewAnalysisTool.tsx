@@ -213,7 +213,7 @@ export default function NewAnalysisTool() {
           ) : success ? (
             <>Analysis Initialized Successfully!</>
           ) : (
-            <><Play size={16} fill="currentColor" /> Run ARGUS Analysis</>
+            <><Play size={16} fill="currentColor" /> Run Kairos Analysis</>
           )}
         </button>
 

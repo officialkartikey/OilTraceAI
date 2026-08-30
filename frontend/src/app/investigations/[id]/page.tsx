@@ -145,7 +145,7 @@ function InvestigationWorkspace() {
                   <h3 style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '12px' }}>Analysis Results</h3>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}><span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Detected Area</span><span className="tactical-text">{data.detection?.area_pct || '--'} km²</span></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}><span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Confidence Score</span><span className="tactical-text" style={{ color: 'var(--accent-green)' }}>{(data.detection?.confidence * 100).toFixed(1)}%</span></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Algorithm</span><span className="tactical-text">ARGUS-DeepSAR v2.1</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Algorithm</span><span className="tactical-text">Kairos-DeepSAR v2.1</span></div>
                 </div>
                 <button 
                   onClick={() => window.open(`/api/analysis/report/${data.investigation.id}`, '_blank')}

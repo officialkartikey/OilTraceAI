@@ -106,7 +106,7 @@ export default function LoginPage() {
           <Shield size={28} color="var(--accent-blue)" />
         </div>
         
-        <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '2px', color: 'var(--text-primary)', marginBottom: '8px' }}>ARGUS LOGIN</h1>
+        <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '2px', color: 'var(--text-primary)', marginBottom: '8px' }}>Kairos LOGIN</h1>
         <p style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '32px' }}>Secure Access Protocol</p>
 
         <Suspense fallback={<div style={{ color: 'var(--text-muted)' }}>Loading...</div>}>

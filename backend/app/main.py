@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down FastAPI...")
     await close_mongo_connection()
 
-app = FastAPI(title="ARGUS Backend", lifespan=lifespan)
+app = FastAPI(title="Kairos Backend", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

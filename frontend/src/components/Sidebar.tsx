@@ -42,7 +42,7 @@ export default function Sidebar() {
           }}>
             <Shield size={20} color="var(--accent-blue)" />
           </div>
-          <h1 style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '2px', margin: 0 }}>ARGUS</h1>
+          <h1 style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '2px', margin: 0 }}>Kairos</h1>
         </div>
         <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
           Maritime Intelligence &<br/>Source Attribution System
