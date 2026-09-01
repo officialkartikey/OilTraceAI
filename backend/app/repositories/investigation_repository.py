@@ -29,6 +29,14 @@ class InvestigationRepository:
             return Investigation(**doc)
         return None
 
+    async def list(self, limit: int = 50) -> list[Investigation]:
+        cursor = self.collection.find().sort("created_at", -1).limit(limit)
+        results = []
+        async for doc in cursor:
+            doc["_id"] = str(doc["_id"])
+            results.append(Investigation(**doc))
+        return results
+
     async def update(self, id: str, update_data: dict) -> Investigation:
         update_data["updated_at"] = datetime.utcnow()
         await self.collection.update_one({"_id": ObjectId(id)}, {"$set": update_data})

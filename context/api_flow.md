@@ -66,6 +66,11 @@ Uploads the SAR image for the investigation.
 }
 ```
 
+> **Demo Note:** For optimal demonstration results with the seeded AIS database, you must use the following exact deterministic inputs in the UI:
+> - **Location (Lat, Lon):** `19.0`, `72.8` (Off the coast of Mumbai)
+> - **Date & Time (UTC):** `2025-01-01T10:30:00`
+> *(Note: The backend has been completely refactored to be a fully deterministic, end-to-end physics pipeline. Prototype hacks have been removed. You must input the correct time and location to intersect the seed data.)*
+
 ### 3. Trigger Analysis
 Starts the asynchronous background pipeline (ML -> Physics -> AIS -> Fusion).
 

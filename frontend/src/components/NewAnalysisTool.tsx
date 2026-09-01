@@ -1,6 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { UploadCloud, MapPin, Calendar, Play, Loader2, FileImage, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { kairosClient } from '@/lib/api/kairosClient';
+
 import { investigationsApi } from '@/lib/api/investigations';
 
 export default function NewAnalysisTool() {
@@ -8,8 +10,10 @@ export default function NewAnalysisTool() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [locationInput, setLocationInput] = useState('');
+  const [latInput, setLatInput] = useState('');
+  const [lonInput, setLonInput] = useState('');
   const [timeInput, setTimeInput] = useState('');
+  const [sourceInput, setSourceInput] = useState('sentinel-1');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -22,38 +26,29 @@ export default function NewAnalysisTool() {
     let lat: number | undefined;
     let lon: number | undefined;
     
-    if (locationInput) {
-      const parts = locationInput.split(',');
-      if (parts.length === 2) {
-        lat = parseFloat(parts[0].trim());
-        lon = parseFloat(parts[1].trim());
-      }
+    if (latInput && lonInput) {
+      lat = parseFloat(latInput.trim());
+      lon = parseFloat(lonInput.trim());
     }
 
     setIsSubmitting(true);
     
     try {
-      // Step 1: Upload the image
-      const uploadRes = await investigationsApi.uploadAnalysisImage(file);
-      const fileId = uploadRes.fileId;
+      // Step 1: Create Investigation
+      const inv = await kairosClient.createInvestigation();
       
-      // Step 2: Run ML Detection
-      const detectRes = await investigationsApi.runDetection({
-        fileId,
-        spill_time: timeInput ? new Date(timeInput).toISOString() : undefined,
-        spill_lat: lat,
-        spill_lon: lon
-      });
+      // Step 2: Upload Observation
+      const timestamp = timeInput ? new Date(timeInput).toISOString() : new Date().toISOString();
+      await kairosClient.addObservation(inv._id, file, timestamp, sourceInput, undefined, lat, lon);
       
-      if (detectRes.success && detectRes.incidentId) {
-        setSuccess(true);
-        // Step 3: Redirect to new investigation workspace
-        setTimeout(() => {
-          router.push(`/investigations/${detectRes.incidentId}`);
-        }, 1000);
-      } else {
-        throw new Error("Detection failed to return an incident ID");
-      }
+      // Step 3: Trigger Analysis
+      await kairosClient.triggerAnalysis(inv._id);
+      
+      setSuccess(true);
+      // Step 4: Redirect to new investigation workspace
+      setTimeout(() => {
+        router.push(`/investigations/${inv._id}`);
+      }, 1000);
       
     } catch (error: any) {
       console.error("Analysis Error:", error);
@@ -149,18 +144,33 @@ export default function NewAnalysisTool() {
         )}
 
         {/* Location & Time */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Location (Lat, Lon)</label>
-            <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '8px' }}>
+            <label style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Latitude</label>
+            <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '8px', transition: 'border-color 0.2s' }}>
               <MapPin size={14} color="var(--text-secondary)" style={{ marginRight: '8px' }} />
               <input 
-                type="text" 
-                placeholder="e.g. 18.85, 72.75" 
+                type="number" step="any"
+                placeholder="Lat (e.g. 19.0)" 
                 required 
-                value={locationInput}
-                onChange={(e) => setLocationInput(e.target.value)}
+                value={latInput}
+                onChange={(e) => setLatInput(e.target.value)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', fontSize: '12px', width: '100%', outline: 'none' }} 
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Longitude</label>
+            <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '8px', transition: 'border-color 0.2s' }}>
+              <MapPin size={14} color="var(--text-secondary)" style={{ marginRight: '8px' }} />
+              <input 
+                type="number" step="any"
+                placeholder="Lon (e.g. 72.8)" 
+                required 
+                value={lonInput}
+                onChange={(e) => setLonInput(e.target.value)}
                 style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', fontSize: '12px', width: '100%', outline: 'none' }} 
               />
             </div>
@@ -168,7 +178,7 @@ export default function NewAnalysisTool() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Date & Time (UTC)</label>
-            <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '8px', transition: 'border-color 0.2s' }}>
               <Calendar size={14} color="var(--text-secondary)" style={{ marginRight: '8px' }} />
               <input 
                 type="datetime-local" 
@@ -179,13 +189,16 @@ export default function NewAnalysisTool() {
               />
             </div>
           </div>
-
         </div>
 
         {/* Source Selector */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <label style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Satellite Source</label>
-          <select style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '8px', color: 'var(--text-primary)', fontSize: '12px', outline: 'none', cursor: 'pointer' }}>
+          <select 
+            value={sourceInput}
+            onChange={(e) => setSourceInput(e.target.value)}
+            style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '8px', color: 'var(--text-primary)', fontSize: '12px', outline: 'none', cursor: 'pointer' }}
+          >
             <option value="sentinel-1">Sentinel-1 (Copernicus)</option>
             <option value="radarsat-2">RADARSAT-2</option>
             <option value="terrasar-x">TerraSAR-X</option>

@@ -1,11 +1,11 @@
 "use client";
 import React, { useEffect, useRef, useState } from 'react';
 import { useInvestigation } from '@/context/InvestigationContext';
-import { Maximize2, Crosshair } from 'lucide-react';
+import { Crosshair, Maximize2 } from 'lucide-react';
 
 export default function SourceReconstruction() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const { data } = useInvestigation();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isSimulating, setIsSimulating] = useState(true);
 
   useEffect(() => {
@@ -25,7 +25,7 @@ export default function SourceReconstruction() {
     const height = rect.height;
 
     // Simulation params
-    const env = data?.drift?.environmental_inputs;
+    const env = data?.environment;
     const windRad = (env?.wind_dir_deg || 220) * Math.PI / 180;
     
     // Core origin (Slick Source) - centered
@@ -55,7 +55,6 @@ export default function SourceReconstruction() {
       ctx.stroke();
 
       // 2. Draw Probability Contours (Heatmap)
-      // We'll draw 4 concentric blob-like shapes representing probability zones
       // Outer (Low Prob - Blue)
       ctx.beginPath();
       ctx.ellipse(originX - 10, originY + 15, 120, 80, windRad, 0, Math.PI * 2);
@@ -157,6 +156,8 @@ export default function SourceReconstruction() {
     return () => cancelAnimationFrame(animationId);
   }, [data, isSimulating]);
 
+  const rec = data?.reconstruction;
+
   return (
     <div className="tactical-panel" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Header */}
@@ -193,7 +194,7 @@ export default function SourceReconstruction() {
         {/* HUD Overlay Top Left */}
         <div style={{ position: 'absolute', top: '12px', left: '16px', display: 'flex', flexDirection: 'column', gap: '4px', zIndex: 10 }}>
           <div style={{ fontSize: '10px', color: 'var(--text-primary)', fontWeight: 600, letterSpacing: '0.5px' }}>PROBABILITY MAP</div>
-          <div style={{ fontSize: '9px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>RES: 10m/px • T-12H</div>
+          <div style={{ fontSize: '9px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>RES: 10m/px | CONF: {rec ? (rec.confidence * 100).toFixed(0) : '--'}%</div>
         </div>
 
         {/* Dynamic Canvas Simulation */}

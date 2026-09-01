@@ -14,9 +14,10 @@ async def seed_deterministic_ais():
     await connect_to_mongo()
     repo = VesselRepository()
     
-    count = await repo.collection.count_documents({})
-    if count > 0:
-        print(f"AIS data already seeded ({count} records). Skipping seed.")
+    count_v1001 = await repo.collection.count_documents({"vessel_id": "V-1001"})
+    count_v1002 = await repo.collection.count_documents({"vessel_id": "V-1002"})
+    if count_v1001 > 0 and count_v1002 > 0:
+        print(f"AIS demo data already seeded for V-1001 and V-1002. Skipping seed.")
         await close_mongo_connection()
         return
 
@@ -24,7 +25,8 @@ async def seed_deterministic_ais():
     await repo.create_indexes()
     
     # Base time is 01 JAN 2025 10:30 UTC
-    base_time = datetime(2025, 1, 1, 10, 30, 0)
+    from datetime import timezone
+    base_time = datetime(2025, 1, 1, 10, 30, 0, tzinfo=timezone.utc)
     records = []
 
     # 1. Strong Candidate (Oceanic Pride)

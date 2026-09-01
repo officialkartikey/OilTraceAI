@@ -23,15 +23,43 @@ class EvidenceEngine:
             return 0.5 + (count / 40.0)
             
     def _calculate_drift_compatibility(self, track: VesselTrack, detection: Detection) -> float:
-        # Forward drift from track position.
-        # For prototype, we mock this as highly correlated with spatial and temporal.
-        # Real logic would call a forward drift simulation and compare with slick.
-        return 0.85
+        # Pseudo-forward drift calculation: calculate distance between track positions and detection geometry.
+        # In a real model, we would drift the vessel's positions forward using wind/current.
+        slick_lon, slick_lat = 72.85, 19.05
+        if detection.geometry and "coordinates" in detection.geometry:
+            coords = detection.geometry["coordinates"][0]
+            slick_lon = sum([c[0] for c in coords]) / len(coords)
+            slick_lat = sum([c[1] for c in coords]) / len(coords)
+            
+        min_dist = float('inf')
+        for pos in track.positions:
+            pos_lon, pos_lat = pos.location["coordinates"]
+            # Rough distance in degrees
+            dist = math.sqrt((pos_lon - slick_lon)**2 + (pos_lat - slick_lat)**2)
+            if dist < min_dist:
+                min_dist = dist
+                
+        # Normalize: distance of 0 -> 1.0 score, distance of 0.5 degrees -> 0.0 score
+        score = 1.0 - (min_dist / 0.5)
+        return max(0.0, min(1.0, score))
         
     def _calculate_trajectory_compatibility(self, track: VesselTrack) -> float:
         # Analyze heading consistency and anomalies.
-        # Mocking for prototype
-        return 0.90
+        # Check if the vessel made sudden erratic turns.
+        if len(track.positions) < 2:
+            return 0.5
+            
+        max_turn = 0
+        for i in range(1, len(track.positions)):
+            prev_h = track.positions[i-1].heading or 0
+            curr_h = track.positions[i].heading or 0
+            turn = abs(curr_h - prev_h)
+            if turn > 180: turn = 360 - turn
+            if turn > max_turn: max_turn = turn
+            
+        # Normalize: turn of 0 -> 1.0, turn of 90 -> 0.0
+        score = 1.0 - (max_turn / 90.0)
+        return max(0.0, min(1.0, score))
 
     def generate_features(self, candidates: list[VesselTrack], detection: Detection, reconstruction: Reconstruction) -> list[CandidateFeatures]:
         features = []

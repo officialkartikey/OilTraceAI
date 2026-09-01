@@ -45,7 +45,7 @@ export default function ObservationCards() {
           marginBottom: '12px', position: 'relative', overflow: 'hidden'
         }}>
           {/* Actual SAR Image */}
-          {imageUrl && (
+          {imageUrl ? (
             <div style={{ 
               position: 'absolute', inset: 0, 
               backgroundImage: `url(${imageUrl})`, 
@@ -53,6 +53,8 @@ export default function ObservationCards() {
               backgroundPosition: 'center',
               filter: 'contrast(1.2) brightness(0.8)'
             }}></div>
+          ) : (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '10px' }}>NO IMAGE DATA</div>
           )}
           
           {/* Tactical Overlay */}
@@ -117,22 +119,28 @@ export default function ObservationCards() {
         <h3 style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '12px' }}>
           Source Probability Over Time
         </h3>
-        <div style={{ position: 'relative', flex: 1 }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, zIndex: 10 }}>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Top Suspect Probability</div>
-            <div className="tactical-text" style={{ fontSize: '20px', color: 'var(--accent-red)', fontWeight: 600 }}>{suspects[0]?.suspect_score?.toFixed(2) || '0.00'}</div>
+        {suspects.length > 0 ? (
+          <div style={{ position: 'relative', flex: 1 }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, zIndex: 10 }}>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Top Suspect Probability</div>
+              <div className="tactical-text" style={{ fontSize: '20px', color: 'var(--accent-red)', fontWeight: 600 }}>{suspects[0]?.suspect_score?.toFixed(2) || '0.00'}</div>
+            </div>
+            <div style={{ width: '100%', height: '100px', marginTop: '20px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                  <XAxis dataKey="time" stroke="var(--text-muted)" fontSize={9} tickLine={false} axisLine={false} />
+                  <YAxis hide domain={[0, 1]} />
+                  <Line type="monotone" dataKey="probability" stroke="var(--accent-red)" strokeWidth={2} dot={{ r: 3, fill: 'var(--bg-panel)', stroke: 'var(--accent-red)' }} />
+                  <ReferenceLine y={suspects[0]?.suspect_score || 0.87} stroke="var(--accent-red)" strokeDasharray="3 3" opacity={0.3} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-          <div style={{ width: '100%', height: '100px', marginTop: '20px' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <XAxis dataKey="time" stroke="var(--text-muted)" fontSize={9} tickLine={false} axisLine={false} />
-                <YAxis hide domain={[0, 1]} />
-                <Line type="monotone" dataKey="probability" stroke="var(--accent-red)" strokeWidth={2} dot={{ r: 3, fill: 'var(--bg-panel)', stroke: 'var(--accent-red)' }} />
-                <ReferenceLine y={suspects[0]?.suspect_score || 0.87} stroke="var(--accent-red)" strokeDasharray="3 3" opacity={0.3} />
-              </LineChart>
-            </ResponsiveContainer>
+        ) : (
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '11px', border: '1px dashed var(--border-color)', borderRadius: '4px' }}>
+            No candidate data available
           </div>
-        </div>
+        )}
       </div>
 
       {/* Investigation Summary */}
