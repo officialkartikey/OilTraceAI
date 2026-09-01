@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.db import connect_to_mongo, close_mongo_connection
-from app.api import investigations, health
+from app.api import investigations, vessels, health
 
 logger = logging.getLogger(__name__)
 

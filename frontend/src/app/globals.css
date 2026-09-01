@@ -1,19 +1,21 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  --bg-base: #06090e;
-  --bg-panel: rgba(12, 18, 28, 0.85);
-  --bg-panel-hover: rgba(20, 30, 45, 0.95);
+  --bg-base: #111317;
+  --bg-sidebar: #17191E;
+  --bg-panel: #1A1D24;
+  --bg-panel-hover: #22262E;
   
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --text-primary: #FFFFFF;
+  --text-secondary: #8E95A4;
+  --text-muted: #5C6370;
   
-  --border-color: rgba(45, 65, 95, 0.4);
-  --border-highlight: rgba(14, 165, 233, 0.4);
+  --border-color: #2A2D35;
+  --border-highlight: rgba(0, 210, 211, 0.4);
   
+  --accent-cyan: #00D2D3;
   --accent-blue: #0ea5e9;
-  --accent-red: #ef4444;
+  --accent-red: #F44336;
   --accent-orange: #f97316;
   --accent-yellow: #eab308;
   --accent-green: #22c55e;
@@ -42,13 +44,10 @@ a {
   text-decoration: none;
 }
 
-/* Tactical Panel Glassmorphism */
+/* Tactical Panel */
 .tactical-panel {
   background: var(--bg-panel);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
 }
 
 .tactical-text {

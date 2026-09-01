@@ -1,6 +1,6 @@
 from bson import ObjectId
 from app.core.db import get_database
-from app.schemas.vessel import AisRecord, VesselTrack
+from app.schemas.vessel import AisRecord, VesselTrack, AisPosition
 from datetime import datetime
 import logging
 
@@ -55,7 +55,13 @@ class VesselRepository:
                 )
             
             tracks[r.vessel_id].positions.append(
-                {"timestamp": r.timestamp, "location": r.location, "speed": r.speed, "heading": r.heading, "course": r.course}
+                AisPosition(
+                    timestamp=r.timestamp, 
+                    location=r.location, 
+                    speed=r.speed, 
+                    heading=r.heading, 
+                    course=r.course
+                )
             )
 
         # Sort positions chronologically

@@ -1,128 +1,113 @@
 "use client";
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Shield, Home, Search, FileText, Settings, Circle, LogOut } from 'lucide-react';
-import { useSession, signOut } from 'next-auth/react';
+import { Shield, Home, Search, FileText, Settings, Activity, HelpCircle, Server, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const [isOpen, setIsOpen] = useState(true);
 
-  // Hide sidebar on auth pages
   if (pathname === '/login' || pathname === '/signup') {
     return null;
   }
 
-  const navItems = [
+  const topNavItems = [
     { name: 'Dashboard', path: '/', icon: Home },
+    { name: 'Observations', path: '/observations', icon: Search }, // Used Search as fallback for eye
+    { name: 'Vessels', path: '/vessels', icon: FileText }, // Fallback for ship
     { name: 'Investigations', path: '/investigations', icon: Search },
-    { name: 'Reports', path: '/reports', icon: FileText },
+    { name: 'Intelligence', path: '/intelligence', icon: Activity },
     { name: 'Settings', path: '/settings', icon: Settings },
   ];
 
-  return (
-    <aside style={{
-      width: '240px',
-      borderRight: '1px solid var(--border-color)',
-      display: 'flex',
-      flexDirection: 'column',
-      padding: '24px 0',
-      background: 'var(--bg-panel)',
-      zIndex: 1000,
-      position: 'relative'
-    }}>
-      {/* Logo Area */}
-      <div style={{ padding: '0 24px', marginBottom: '32px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-          <div style={{ 
-            width: '32px', height: '32px', 
-            border: '2px solid var(--accent-blue)', 
-            borderRadius: '6px', 
-            display: 'flex', alignItems: 'center', justifyContent: 'center' 
+  const bottomNavItems = [
+    { name: 'System Status', path: '/status', icon: Server },
+    { name: 'Help', path: '/help', icon: HelpCircle },
+  ];
+
+  const NavGroup = ({ items }: { items: any[] }) => (
+    <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {items.map((item) => {
+        // Simple active check for prototype
+        const isActive = pathname.startsWith(item.path) && (item.path !== '/' || pathname === '/');
+        const Icon = item.icon;
+        return (
+          <Link key={item.path} href={item.path} style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            padding: '12px 4px',
+            color: isActive ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+            borderLeft: isActive ? '3px solid var(--accent-cyan)' : '3px solid transparent',
+            textDecoration: 'none',
+            position: 'relative'
           }}>
-            <Shield size={20} color="var(--accent-blue)" />
-          </div>
-          <h1 style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '2px', margin: 0 }}>Kairos</h1>
-        </div>
-        <div style={{ fontSize: '9px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-          Maritime Intelligence &<br/>Source Attribution System
-        </div>
-      </div>
-
-      {/* Navigation */}
-      <nav style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-        {navItems.map((item) => {
-          const isActive = pathname === item.path;
-          const Icon = item.icon;
-          return (
-            <Link key={item.path} href={item.path} style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '16px',
-              padding: '12px 24px',
-              background: isActive ? 'rgba(14, 165, 233, 0.1)' : 'transparent',
-              color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-              borderLeft: isActive ? '3px solid var(--accent-blue)' : '3px solid transparent',
-              fontSize: '13px',
-              fontWeight: isActive ? 600 : 400,
-              transition: 'all 0.2s',
-            }}
-            onMouseOver={(e) => {
-              if(!isActive) {
-                e.currentTarget.style.color = 'var(--text-primary)';
-                e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
-              }
-            }}
-            onMouseOut={(e) => {
-              if(!isActive) {
-                e.currentTarget.style.color = 'var(--text-secondary)';
-                e.currentTarget.style.background = 'transparent';
-              }
-            }}>
-              <Icon size={18} color={isActive ? 'var(--accent-blue)' : 'var(--text-muted)'} />
+            <Icon size={20} color="currentColor" />
+            <span style={{ fontSize: '9px', fontWeight: 600, textTransform: 'capitalize' }}>
               {item.name}
-            </Link>
-          );
-        })}
-      </nav>
+            </span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
 
-      {/* Bottom Status & User */}
-      <div style={{ padding: '0 24px', marginTop: 'auto' }}>
-        <div className="tactical-panel" style={{ padding: '12px', marginBottom: '24px', background: 'rgba(0,0,0,0.3)' }}>
-          <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>
-            System Status
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--accent-green)' }}>
-            <Circle size={10} fill="currentColor" />
-            All Systems<br/>Operational
-          </div>
+  return (
+    <div style={{ position: 'relative', display: 'flex', zIndex: 1000, height: '100%' }}>
+      <aside style={{
+        width: isOpen ? '80px' : '0px',
+        minWidth: isOpen ? '80px' : '0px',
+        borderRight: isOpen ? '1px solid var(--border-color)' : 'none',
+        display: 'flex',
+        flexDirection: 'column',
+        padding: isOpen ? '24px 0' : '0',
+        background: 'var(--bg-sidebar)',
+        alignItems: 'center',
+        overflow: 'hidden',
+        transition: 'all 0.3s ease',
+        opacity: isOpen ? 1 : 0
+      }}>
+        {/* Logo Area */}
+        <div style={{ marginBottom: '32px', color: 'var(--accent-cyan)', fontWeight: 800, fontSize: '18px', letterSpacing: '1px' }}>
+          Kairos
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ 
-              width: '32px', height: '32px', 
-              background: 'var(--border-color)', 
-              borderRadius: '50%',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '12px', fontWeight: 600
-            }}>
-              {session?.user?.email?.charAt(0).toUpperCase() || 'U'}
-            </div>
-            <div>
-              <div style={{ fontSize: '12px', fontWeight: 600 }}>{session?.user?.email?.split('@')[0] || 'User'}</div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{(session?.user as any)?.userType || 'Analyst'}</div>
-            </div>
-          </div>
-          <button 
-            onClick={() => signOut()}
-            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-            title="Sign Out"
-          >
-            <LogOut size={16} />
-          </button>
+        <div style={{ flex: 1, width: '100%', opacity: isOpen ? 1 : 0, transition: 'opacity 0.2s ease', transitionDelay: isOpen ? '0.1s' : '0s' }}>
+          <NavGroup items={topNavItems} />
         </div>
-      </div>
-    </aside>
+
+        <div style={{ width: '100%', borderTop: '1px solid var(--border-color)', paddingTop: '16px', opacity: isOpen ? 1 : 0, transition: 'opacity 0.2s ease', transitionDelay: isOpen ? '0.1s' : '0s' }}>
+          <NavGroup items={bottomNavItems} />
+        </div>
+      </aside>
+
+      {/* Toggle Button */}
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          position: 'absolute',
+          bottom: '24px',
+          right: isOpen ? '-14px' : '-28px',
+          background: 'var(--bg-sidebar)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '50%',
+          width: '28px',
+          height: '28px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          color: 'var(--text-muted)',
+          transition: 'all 0.3s ease',
+          boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+        }}
+        title={isOpen ? "Collapse Sidebar" : "Expand Sidebar"}
+      >
+        {isOpen ? <PanelLeftClose size={14} /> : <PanelLeftOpen size={14} />}
+      </button>
+    </div>
   );
 }

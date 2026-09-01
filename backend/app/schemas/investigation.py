@@ -8,6 +8,12 @@ class InvestigationBase(BaseModel):
 class InvestigationCreate(InvestigationBase):
     pass
 
+class InvestigationFailure(BaseModel):
+    stage: str
+    code: str
+    message: str
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
 class Investigation(InvestigationBase):
     id: str = Field(..., alias="_id")
     status: str = "CREATED"
@@ -18,6 +24,7 @@ class Investigation(InvestigationBase):
     attribution_id: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    failure: Optional[InvestigationFailure] = None
 
     class Config:
         populate_by_name = True

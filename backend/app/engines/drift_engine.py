@@ -3,21 +3,22 @@ from datetime import datetime, timedelta
 from app.schemas.detection import Detection
 from app.schemas.reconstruction import ReconstructionCreate, TimeWindow
 
+from app.schemas.environment import EnvironmentSnapshot
+
 class DriftEngine:
     def __init__(self):
         pass
 
-    def reconstruct(self, detection: Detection, environment: dict, duration_hours: int = 2, time_step_min: int = 10) -> ReconstructionCreate:
+    def reconstruct(self, detection: Detection, environment: EnvironmentSnapshot, observation = None, duration_hours: int = 2, time_step_min: int = 10) -> ReconstructionCreate:
         """
         Backward particle tracking.
         For prototype, we use a simple vector addition:
         v_drift = v_current + (wind_weight * v_wind)
         """
-        # Parse environment
-        current_speed_kn = environment.get("current_speed_kn", 0.5)
-        current_dir_deg = environment.get("current_dir_deg", 45)
-        wind_speed_kn = environment.get("wind_speed_kn", 10.0)
-        wind_dir_deg = environment.get("wind_dir_deg", 90)
+        current_speed_kn = environment.current_speed_kn
+        current_dir_deg = environment.current_dir_deg
+        wind_speed_kn = environment.wind_speed_kn
+        wind_dir_deg = environment.wind_dir_deg
         
         # In a real system, we'd take the geometry. For demo, we assume a point at 19.05, 72.85
         # if geometry is missing.
@@ -25,6 +26,10 @@ class DriftEngine:
         if detection.geometry and "coordinates" in detection.geometry:
             # simple centroid of first ring if polygon
             coords = detection.geometry["coordinates"][0]
+            start_lon = sum([c[0] for c in coords]) / len(coords)
+            start_lat = sum([c[1] for c in coords]) / len(coords)
+        elif observation and observation.geospatial_bounds and "coordinates" in observation.geospatial_bounds:
+            coords = observation.geospatial_bounds["coordinates"][0]
             start_lon = sum([c[0] for c in coords]) / len(coords)
             start_lat = sum([c[1] for c in coords]) / len(coords)
 
@@ -62,8 +67,8 @@ class DriftEngine:
         final_lon = start_lon + (back_u * total_seconds * lon_deg_per_m)
         final_lat = start_lat + (back_v * total_seconds * lat_deg_per_m)
         
-        # Create a source region polygon around the final point (e.g., 5km radius box)
-        box_size_deg = 5000 * lat_deg_per_m
+        # Create a source region polygon around the final point (e.g., 10km radius box)
+        box_size_deg = 10000 * lat_deg_per_m
         source_region = {
             "type": "Polygon",
             "coordinates": [[
@@ -76,15 +81,16 @@ class DriftEngine:
         }
         
         # Time window calculation
-        obs_time = detection.created_at
-        end_time = obs_time - timedelta(hours=duration_hours - 0.5)
-        start_time = obs_time - timedelta(hours=duration_hours + 0.5)
+        base_time = observation.timestamp if observation else detection.created_at
+        end_time = base_time - timedelta(hours=duration_hours - 0.5)
+        start_time = base_time - timedelta(hours=duration_hours + 0.5)
         
         return ReconstructionCreate(
             investigation_id=detection.investigation_id,
             parameters={
                 "duration_hours": duration_hours,
-                "wind_factor": wind_factor
+                "wind_factor": wind_factor,
+                "environment": environment.model_dump()
             },
             release_window=TimeWindow(start_time=start_time, end_time=end_time),
             source_region=source_region,

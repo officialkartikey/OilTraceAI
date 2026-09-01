@@ -1,4 +1,8 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
+from fastapi.responses import FileResponse
+from fpdf import FPDF
+import tempfile
+import os
 from typing import Optional, List
 from app.schemas.investigation import InvestigationCreate, Investigation
 from app.schemas.observation import ObservationCreate, Observation
@@ -8,10 +12,10 @@ from app.repositories.observation_repository import ObservationRepository
 from app.repositories.detection_repository import DetectionRepository
 from app.repositories.reconstruction_repository import ReconstructionRepository
 from app.repositories.vessel_repository import VesselRepository
-from app.services.ml_client import ml_client
-from app.engines.drift_engine import drift_engine
-from app.engines.evidence_engine import evidence_engine
-from app.engines.attribution_engine import attribution_engine
+from app.repositories.reconstruction_repository import ReconstructionRepository
+from app.repositories.vessel_repository import VesselRepository
+from app.repositories.attribution_repository import attribution_repo
+from app.services.investigation_orchestrator import orchestrator
 import logging
 
 logger = logging.getLogger(__name__)
@@ -27,6 +31,45 @@ vessel_repo = VesselRepository()
 @router.post("/", response_model=Investigation)
 async def create_investigation(inv_in: InvestigationCreate):
     return await inv_repo.create(inv_in)
+
+@router.get("/alerts")
+async def get_alerts():
+    # Fetch latest 10 investigations to serve as mock alerts
+    invs = await inv_repo.collection.find().sort("created_at", -1).to_list(10)
+    alerts = []
+    for inv in invs:
+        # Generate a dummy alert based on the investigation
+        alerts.append({
+            "_id": str(inv["_id"]),
+            "observation_id": inv.get("observation_ids", ["unknown"])[0] if inv.get("observation_ids") else "N/A",
+            "timestamp": inv.get("created_at", "").isoformat() if hasattr(inv.get("created_at", ""), "isoformat") else str(inv.get("created_at", "")),
+            "satellite": "Sentinel-1",
+            "image_file": "placeholder.png"
+        })
+    return {"success": True, "alerts": alerts}
+
+@router.get("/spills")
+async def get_active_spills():
+    invs = await inv_repo.list()
+    results = []
+    for inv in invs:
+        # Get det for area and loc
+        det = await det_repo.get_by_investigation(inv.id)
+        
+        area = det.area_km2 if (det and det.area_km2 is not None) else 0.0
+        lat, lng = 19.0, 72.8 # default
+        
+        results.append({
+            "id": inv.id,
+            "name": f"Incident-{inv.id[-4:].upper()}",
+            "detectedAt": inv.created_at.isoformat(),
+            "status": "RESOLVED" if inv.status == "COMPLETED" else "ACTIVE",
+            "areaSqKm": area,
+            "currentLocation": {"lat": lat, "lng": lng},
+            "hindcastOrigin": {"lat": 19.05, "lng": 72.85},
+            "culpritFound": len(inv.candidate_ids) > 0 if inv.candidate_ids else False
+        })
+    return {"success": True, "data": results}
 
 @router.get("/{id}", response_model=Investigation)
 async def get_investigation(id: str):
@@ -54,6 +97,8 @@ async def add_observation(
     timestamp: str = Form(...),
     sensor: str = Form(...),
     resolution_m: Optional[float] = Form(None),
+    lat: Optional[float] = Form(None),
+    lon: Optional[float] = Form(None),
     file: UploadFile = File(...)
 ):
     inv = await inv_repo.get(id)
@@ -75,8 +120,17 @@ async def add_observation(
     from datetime import datetime
     import json
     
-    # Simple polygon bounds around Mumbai for prototype dummy if not provided
-    dummy_bounds = {"type": "Polygon", "coordinates": [[[72.7, 18.9], [73.0, 18.9], [73.0, 19.2], [72.7, 19.2], [72.7, 18.9]]]}
+    # Simple polygon bounds
+    if lat is not None and lon is not None:
+        # Create a roughly 30x30km box around the lat/lon
+        offset = 0.15 # approx 15km
+        dummy_bounds = {
+            "type": "Polygon",
+            "coordinates": [[[lon - offset, lat - offset], [lon + offset, lat - offset], [lon + offset, lat + offset], [lon - offset, lat + offset], [lon - offset, lat - offset]]]
+        }
+    else:
+        # Default to Mumbai if not provided
+        dummy_bounds = {"type": "Polygon", "coordinates": [[[72.7, 18.9], [73.0, 18.9], [73.0, 19.2], [72.7, 19.2], [72.7, 18.9]]]}
     
     obs_in = ObservationCreate(
         timestamp=datetime.fromisoformat(timestamp.replace("Z", "+00:00")),
@@ -90,70 +144,13 @@ async def add_observation(
     await inv_repo.update(id, {"observation_ids": inv.observation_ids + [obs.id]})
     return obs
 
-async def run_analysis(investigation_id: str):
-    try:
-        logger.info(f"[INV-{investigation_id}] Analysis started")
-        
-        # 1. Get observation
-        observations = await obs_repo.get_by_investigation(investigation_id)
-        if not observations:
-            logger.error(f"[INV-{investigation_id}] No observations found")
-            await inv_repo.update(investigation_id, {"status": "FAILED"})
-            return
-        obs = observations[0]
-        
-        # 2. ML Detection
-        logger.info(f"[INV-{investigation_id}] Running ML detection")
-        det_in = await ml_client.detect(obs)
-        det = await det_repo.create(det_in)
-        await inv_repo.update(investigation_id, {"detection_id": det.id})
-        
-        if not det.detected:
-            logger.info(f"[INV-{investigation_id}] No slick detected. Stopping.")
-            await inv_repo.update(investigation_id, {"status": "COMPLETED"})
-            return
-            
-        # 3. Environment & Drift Reconstruction
-        logger.info(f"[INV-{investigation_id}] Running drift reconstruction")
-        # Dummy environment for prototype
-        env = {"current_speed_kn": 0.5, "current_dir_deg": 45, "wind_speed_kn": 10.0, "wind_dir_deg": 90}
-        rec_in = drift_engine.reconstruct(det, env)
-        rec = await rec_repo.create(rec_in)
-        await inv_repo.update(investigation_id, {"reconstruction_id": rec.id})
-        
-        # 4. AIS Query (Candidates)
-        logger.info(f"[INV-{investigation_id}] Querying AIS candidates")
-        candidates = await vessel_repo.find_candidates(
-            source_region=rec.source_region,
-            start_time=rec.release_window.start_time,
-            end_time=rec.release_window.end_time
-        )
-        logger.info(f"[INV-{investigation_id}] Found {len(candidates)} candidates")
-        
-        # 5. Evidence Fusion & Attribution
-        logger.info(f"[INV-{investigation_id}] Running evidence fusion")
-        features = evidence_engine.generate_features(candidates, det, rec)
-        ranked_candidates = attribution_engine.rank(candidates, features)
-        
-        # We don't save the full fusion payload in Mongo to avoid bloating,
-        # but in a real system we'd save CandidateFeatures and EvidenceScore.
-        candidate_ids = [c.vessel.vessel_id for c in ranked_candidates]
-        await inv_repo.update(investigation_id, {"candidate_ids": candidate_ids, "status": "COMPLETED"})
-        
-        logger.info(f"[INV-{investigation_id}] Analysis completed")
-    except Exception as e:
-        logger.exception(f"[INV-{investigation_id}] Analysis failed: {e}")
-        await inv_repo.update(investigation_id, {"status": "FAILED"})
-
-
 @router.post("/{id}/analyze")
 async def trigger_analysis(id: str, background_tasks: BackgroundTasks):
     inv = await inv_repo.get(id)
     if not inv:
         raise HTTPException(status_code=404, detail="Investigation not found")
         
-    await inv_repo.update(id, {"status": "ANALYZING"})
-    background_tasks.add_task(run_analysis, id)
+    background_tasks.add_task(orchestrator.analyze, id)
     return {"job_id": id, "status": "QUEUED"}
 
 @router.get("/{id}/full")
@@ -171,29 +168,96 @@ async def get_full_investigation(id: str):
         "observation": obs[0].model_dump(by_alias=True) if obs else None,
         "detection": det.model_dump(by_alias=True) if det else None,
         "reconstruction": rec.model_dump(by_alias=True) if rec else None,
-        "environment": {"wind_speed_kn": 10.0, "current_speed_kn": 0.5},
+        "environment": rec.parameters.get("environment") if rec and hasattr(rec, "parameters") and rec.parameters else None,
         "candidates": [] # In a full impl, we'd persist the ranked results and fetch them here
     }
     
     if rec and inv.status == "COMPLETED":
-        # Let's quickly re-run ranking on the fly to return in the API for the prototype
-        candidates = await vessel_repo.find_candidates(
-            source_region=rec.source_region,
-            start_time=rec.release_window.start_time,
-            end_time=rec.release_window.end_time
-        )
-        if candidates and det:
-            features = evidence_engine.generate_features(candidates, det, rec)
-            ranked_candidates = attribution_engine.rank(candidates, features)
-            response["candidates"] = [r.model_dump() for r in ranked_candidates]
+        # Fetch the real persisted attribution results
+        attr_data = await attribution_repo.get_by_investigation(id)
+        if attr_data and "ranked_candidates" in attr_data:
+            response["candidates"] = attr_data["ranked_candidates"]
             
     return response
 
+
+@router.get("/{id}/report")
+async def generate_report(id: str):
+    inv = await inv_repo.get(id)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Investigation not found")
+        
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=15)
+    pdf.cell(200, 10, text="Kairos Investigation Report", ln=True, align='C')
+    pdf.set_font("Arial", size=12)
+    pdf.cell(200, 10, text=f"Investigation ID: {inv.id}", ln=True)
+    pdf.cell(200, 10, text=f"Status: {inv.status}", ln=True)
+    pdf.cell(200, 10, text=f"Created At: {inv.created_at}", ln=True)
+    
+    # Very basic report generation for demo
+    det = await det_repo.get_by_investigation(id)
+    if det:
+        pdf.cell(200, 10, text=f"Detection Confidence: {det.confidence}", ln=True)
+        pdf.cell(200, 10, text=f"Slick Detected: {det.detected}", ln=True)
+    
+    rec = await rec_repo.get_by_investigation(id)
+    if rec:
+        pdf.cell(200, 10, text=f"Release Window: {rec.release_window.start_time} - {rec.release_window.end_time}", ln=True)
+        
+    if inv.candidate_ids:
+        pdf.cell(200, 10, text=f"Candidates Found: {len(inv.candidate_ids)}", ln=True)
+    
+    tmp_path = os.path.join(tempfile.gettempdir(), f"report_{id}.pdf")
+    pdf.output(tmp_path)
+    
+    return FileResponse(tmp_path, media_type='application/pdf', filename=f"Kairos_Report_{id}.pdf")
+
 @router.get("/{id}/timeline")
 async def get_timeline(id: str):
-    # Dummy timeline for prototype
-    return [
-        {"timestamp": "08:30", "event": "AIS activity recorded"},
-        {"timestamp": "10:30", "event": "SAR observation"},
-        {"timestamp": "10:31", "event": "ML detection"}
-    ]
+    inv = await inv_repo.get(id)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Investigation not found")
+        
+    events = []
+    
+    events.append({
+        "timestamp": inv.created_at.isoformat() if getattr(inv, 'created_at', None) else "Unknown",
+        "event": "Investigation workspace initialized"
+    })
+    
+    obs_list = await obs_repo.get_by_investigation(id)
+    if obs_list:
+        obs = obs_list[0]
+        events.append({
+            "timestamp": obs.timestamp.isoformat(),
+            "event": f"SAR observation ({obs.sensor}) recorded"
+        })
+        
+    det = await det_repo.get_by_investigation(id)
+    if det:
+        events.append({
+            "timestamp": det.created_at.isoformat() if getattr(det, 'created_at', None) else "Unknown",
+            "event": "ML detection completed - Slick found" if det.detected else "ML detection completed - No slick"
+        })
+        
+    rec = await rec_repo.get_by_investigation(id)
+    if rec:
+        events.append({
+            "timestamp": rec.created_at.isoformat() if getattr(rec, 'created_at', None) else "Unknown",
+            "event": "Drift reconstruction completed. Source region estimated."
+        })
+        
+    if inv.status == "COMPLETED" and rec:
+        events.append({
+            "timestamp": inv.updated_at.isoformat() if getattr(inv, 'updated_at', None) else "Unknown",
+            "event": f"Candidate analysis completed. {len(inv.candidate_ids)} potential sources ranked."
+        })
+    elif inv.status == "FAILED":
+        events.append({
+            "timestamp": inv.updated_at.isoformat() if getattr(inv, 'updated_at', None) else "Unknown",
+            "event": "Analysis failed."
+        })
+        
+    return events
