@@ -38,7 +38,8 @@ export default function NewAnalysisTool() {
       const inv = await kairosClient.createInvestigation();
       
       // Step 2: Upload Observation
-      const timestamp = timeInput ? new Date(timeInput).toISOString() : new Date().toISOString();
+      // If timeInput is '2025-01-01T10:30', appending 'Z' forces it to be interpreted as UTC instead of local time
+      const timestamp = timeInput ? new Date(timeInput + "Z").toISOString() : new Date().toISOString();
       await kairosClient.addObservation(inv._id, file, timestamp, sourceInput, undefined, lat, lon);
       
       // Step 3: Trigger Analysis
