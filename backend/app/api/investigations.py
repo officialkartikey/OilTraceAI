@@ -38,7 +38,7 @@ async def get_alerts():
     invs = await inv_repo.collection.find().sort("created_at", -1).to_list(10)
     alerts = []
     for inv in invs:
-        # Generate a dummy alert based on the investigation
+        # Generate an alert format based on the investigation
         alerts.append({
             "_id": str(inv["_id"]),
             "observation_id": inv.get("observation_ids", ["unknown"])[0] if inv.get("observation_ids") else "N/A",
@@ -123,7 +123,7 @@ async def add_observation(
     # Simple polygon bounds around the provided lat/lon
     # Create a roughly 30x30km box around the lat/lon
     offset = 0.15 # approx 15km
-    dummy_bounds = {
+    generated_bounds = {
         "type": "Polygon",
         "coordinates": [[[lon - offset, lat - offset], [lon + offset, lat - offset], [lon + offset, lat + offset], [lon - offset, lat + offset], [lon - offset, lat - offset]]]
     }
@@ -133,7 +133,7 @@ async def add_observation(
         sensor=sensor,
         resolution_m=resolution_m,
         image_reference=image_url,
-        geospatial_bounds=dummy_bounds
+        geospatial_bounds=generated_bounds
     )
     
     obs = await obs_repo.create(obs_in, id)

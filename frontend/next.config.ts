@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
       fallback: [
         {
           source: '/api/:path*',
-          destination: 'http://localhost:5000/api/:path*' // Proxy all unmatched API requests to Backend
+          destination: 'http://localhost:8080/api/:path*' // Proxy all unmatched API requests to Backend
         }
       ]
     };

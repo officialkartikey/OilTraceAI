@@ -62,7 +62,9 @@ export interface TimelineEvent {
   event: string;
 }
 
-const API_BASE = 'http://localhost:8080/api/v1/investigations';
+const rawBase = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080/api/v1/';
+const baseUrl = rawBase.endsWith('/') ? rawBase.slice(0, -1) : rawBase;
+const API_BASE = `${baseUrl}/investigations`;
 
 export const kairosClient = {
   async createInvestigation(): Promise<Investigation> {

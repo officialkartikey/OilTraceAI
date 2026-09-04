@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.db import connect_to_mongo, close_mongo_connection
-from app.api import investigations, vessels, health
+from app.api import investigations, vessels, health, auth
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +34,7 @@ app.add_middleware(
 )
 
 app.include_router(health.router, prefix="/health", tags=["health"])
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(investigations.router, prefix="/api/v1/investigations", tags=["investigations"])
 
 if __name__ == "__main__":
