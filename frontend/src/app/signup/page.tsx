@@ -1,12 +1,13 @@
 "use client";
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shield, Lock, Mail, Users } from 'lucide-react';
+import { Shield, Lock, Mail, Users, Key } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [secretKey, setSecretKey] = useState('');
   const [userType, setUserType] = useState('Analyst');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,10 +19,12 @@ export default function SignupPage() {
     setError('');
 
     try {
-      const res = await fetch('/api/auth/signup', {
+      const rawBase = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080/api/v1/';
+      const baseUrl = rawBase.endsWith('/') ? rawBase.slice(0, -1) : rawBase;
+      const res = await fetch(`${baseUrl}/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, userType })
+        body: JSON.stringify({ email, password, userType, secret_key: secretKey })
       });
 
       const data = await res.json();
@@ -78,6 +81,18 @@ export default function SignupPage() {
               placeholder="Desired Password" 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              required
+              style={{ width: '100%', padding: '10px 10px 10px 40px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', borderRadius: '4px', outline: 'none' }}
+            />
+          </div>
+
+          <div style={{ position: 'relative' }}>
+            <Key size={16} color="var(--text-muted)" style={{ position: 'absolute', top: '12px', left: '12px' }} />
+            <input 
+              type="password" 
+              placeholder="Super Secret Key" 
+              value={secretKey}
+              onChange={(e) => setSecretKey(e.target.value)}
               required
               style={{ width: '100%', padding: '10px 10px 10px 40px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', borderRadius: '4px', outline: 'none' }}
             />

@@ -13,7 +13,9 @@ const handler = NextAuth({
         if (!credentials?.email || !credentials?.password) return null;
 
         try {
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/auth/login`, {
+          const rawBase = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080/api/v1/';
+          const baseUrl = rawBase.endsWith('/') ? rawBase.slice(0, -1) : rawBase;
+          const res = await fetch(`${baseUrl}/auth/login`, {
             method: 'POST',
             body: JSON.stringify({
               email: credentials.email,

@@ -3,22 +3,22 @@ import { InvestigationDetailResponse, AlertsResponse, ActiveSpill } from './type
 
 export const investigationsApi = {
   getInvestigationDetails: async (id: string): Promise<InvestigationDetailResponse> => {
-    const data = await fetchApi<{ success: boolean; data: InvestigationDetailResponse }>(`/investigation/${id}`);
+    const data = await fetchApi<{ success: boolean; data: InvestigationDetailResponse }>(`/investigations/${id}`);
     return data.data;
   },
 
   getAlerts: async (): Promise<AlertsResponse> => {
-    const data = await fetchApi<AlertsResponse>('/alerts');
+    const data = await fetchApi<AlertsResponse>('/investigations/alerts');
     return data; // already { alerts: [...] } ? Let's check backend... it returns { success: true, alerts: [...] }
   },
 
   getActiveSpills: async (): Promise<ActiveSpill[]> => {
-    const data = await fetchApi<{ success: boolean; data: ActiveSpill[] }>('/spills');
+    const data = await fetchApi<{ success: boolean; data: ActiveSpill[] }>('/investigations/spills');
     return data.data;
   },
   
   getAlertsData: async (): Promise<AlertsResponse['alerts']> => {
-    const data = await fetchApi<{ success: boolean; alerts: AlertsResponse['alerts'] }>('/alerts');
+    const data = await fetchApi<{ success: boolean; alerts: AlertsResponse['alerts'] }>('/investigations/alerts');
     return data.alerts;
   },
 

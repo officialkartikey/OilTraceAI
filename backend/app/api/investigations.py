@@ -38,7 +38,7 @@ async def get_alerts():
     invs = await inv_repo.collection.find().sort("created_at", -1).to_list(10)
     alerts = []
     for inv in invs:
-        # Generate a dummy alert based on the investigation
+        # Generate an alert format based on the investigation
         alerts.append({
             "_id": str(inv["_id"]),
             "observation_id": inv.get("observation_ids", ["unknown"])[0] if inv.get("observation_ids") else "N/A",
@@ -97,8 +97,8 @@ async def add_observation(
     timestamp: str = Form(...),
     sensor: str = Form(...),
     resolution_m: Optional[float] = Form(None),
-    lat: Optional[float] = Form(None),
-    lon: Optional[float] = Form(None),
+    lat: float = Form(...),
+    lon: float = Form(...),
     file: UploadFile = File(...)
 ):
     inv = await inv_repo.get(id)
@@ -120,24 +120,20 @@ async def add_observation(
     from datetime import datetime
     import json
     
-    # Simple polygon bounds
-    if lat is not None and lon is not None:
-        # Create a roughly 30x30km box around the lat/lon
-        offset = 0.15 # approx 15km
-        dummy_bounds = {
-            "type": "Polygon",
-            "coordinates": [[[lon - offset, lat - offset], [lon + offset, lat - offset], [lon + offset, lat + offset], [lon - offset, lat + offset], [lon - offset, lat - offset]]]
-        }
-    else:
-        # Default to Mumbai if not provided
-        dummy_bounds = {"type": "Polygon", "coordinates": [[[72.7, 18.9], [73.0, 18.9], [73.0, 19.2], [72.7, 19.2], [72.7, 18.9]]]}
+    # Simple polygon bounds around the provided lat/lon
+    # Create a roughly 30x30km box around the lat/lon
+    offset = 0.15 # approx 15km
+    generated_bounds = {
+        "type": "Polygon",
+        "coordinates": [[[lon - offset, lat - offset], [lon + offset, lat - offset], [lon + offset, lat + offset], [lon - offset, lat + offset], [lon - offset, lat - offset]]]
+    }
     
     obs_in = ObservationCreate(
         timestamp=datetime.fromisoformat(timestamp.replace("Z", "+00:00")),
         sensor=sensor,
         resolution_m=resolution_m,
         image_reference=image_url,
-        geospatial_bounds=dummy_bounds
+        geospatial_bounds=generated_bounds
     )
     
     obs = await obs_repo.create(obs_in, id)

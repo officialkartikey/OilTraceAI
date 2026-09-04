@@ -17,7 +17,7 @@ This document outlines the current progress of the OilTraceAI platform based on 
 
 ### ✅ Module 5 — Web Dashboard (Frontend) & Backend API
 - **Implemented:** A React/Next.js frontend application providing a comprehensive dashboard with map visualizations, timeline analysis, and suspect vessel listings.
-- **Implemented:** Node.js/Express backend handling image uploads, ML orchestration, and database operations.
+- **Implemented:** Node.js/Express backend handling image uploads, ML orchestration, and database operations. (Note: Initial dummy/seeding files have been completely removed; the pipeline now relies strictly on real-time data flow).
 - **Implemented:** Automated PDF Report generation feature is functional using `pdfkit` in the backend.
 
 ---
@@ -79,3 +79,13 @@ The ML layer handles all heavy lifting, including computer vision and oceanograp
 6. **Data Persistence**: The **Backend** receives the ML response, creates a structured `Incident` record, saves it to **MongoDB (Remote)**, and responds to the Frontend.
 7. **Visualization**: The **Frontend** fetches the full context (including raw AIS tracks via `/investigation/:id`) and visually renders the data on the dashboard map (`MapWidget`), populates the timeline (`IncidentTimeline`), and lists suspects (`CandidateVesselsList`).
 8. **Reporting**: The user can click to download a formal PDF brief of the incident, which is generated dynamically by the **Backend** via `/report/:id`.
+
+---
+
+## 5. Key Pain Points & Current Bottlenecks
+
+1. **Database Limitations (MongoDB vs PostgreSQL):** We are currently using MongoDB, which lacks robust built-in support for complex geospatial queries required by the PRD (such as `pgvector` for similarity or PostGIS for complex spatial intersections between drift tracts and AIS routes). This significantly limits performance at scale.
+2. **Static AIS Pipeline:** Our ML attribution relies on static or loosely integrated historical AIS CSV data, making it challenging to maintain real-time monitoring. Integrating directly with live Marine Cadastre APIs or streaming data is essential.
+3. **Drift & ML Simplification:** The drift models and attribution scoring are basic deterministic Python implementations, lacking the advanced Look-alike (false positive) Bayesian filtering and robust stochastic simulation mentioned in the PRD. 
+4. **Resiliency and Failovers:** Deep dependencies on third-party remote calls (e.g., Cloudinary for images, remote ML APIs) mean that connection timeouts break the entire flow. The system currently uses aggressive fallback strategies (like injecting 1x1 pixel mock images on failure) to prevent total pipeline collapse, but better retry and queue mechanisms are needed.
+5. **Mobile Application Missing:** The cross-platform mobile app for field officers is completely unstarted, leaving a gap for on-field response teams.

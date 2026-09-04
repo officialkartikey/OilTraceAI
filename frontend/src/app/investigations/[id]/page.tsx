@@ -9,6 +9,7 @@ import { Loader2, AlertTriangle, Play, Download, Clock, Bell, MoreVertical, Refr
 import Link from 'next/link';
 import InvestigationPipeline from '@/components/InvestigationPipeline';
 import IntelligencePanel from '@/components/IntelligencePanel';
+import { kairosClient } from '@/lib/api/kairosClient';
 
 function InvestigationWorkspace() {
   const { 
@@ -92,7 +93,7 @@ function InvestigationWorkspace() {
           {isFailed ? (
             <button 
               onClick={async () => {
-                await fetch(`http://localhost:8080/api/investigations/${data.investigation._id}/analyze`, { method: 'POST' });
+                await kairosClient.triggerAnalysis(data.investigation._id);
                 refresh();
               }}
               style={{ padding: '8px 16px', background: 'var(--accent-cyan)', color: '#000', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
