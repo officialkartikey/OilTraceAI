@@ -10,6 +10,9 @@ class ReconstructionBase(BaseModel):
     parameters: Dict[str, Any]
     release_window: TimeWindow
     source_region: Dict[str, Any] # GeoJSON Polygon
+    hindcast_track: Optional[List[Dict[str, Any]]] = None
+    horizon_hours: Optional[float] = None
+    uncertainty_km: Optional[float] = None
     confidence: float
     model_version: str
 

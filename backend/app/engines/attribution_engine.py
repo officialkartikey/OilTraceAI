@@ -5,9 +5,9 @@ class AttributionEngine:
     def __init__(self):
         # Weights for prototype heuristic
         self.weights = {
-            "spatial": 0.25,
-            "temporal": 0.20,
-            "drift": 0.30,
+            "spatial": 0.30,
+            "temporal": 0.25,
+            "drift": 0.20,
             "trajectory": 0.15,
             "ais_quality": 0.10
         }
@@ -15,18 +15,21 @@ class AttributionEngine:
     def _generate_explanations(self, features: CandidateFeatures) -> list[str]:
         explanations = []
         if features.spatial_compatibility > 0.8:
-            explanations.append("Trajectory intersected the reconstructed source region.")
+            explanations.append("Vessel trajectory directly intersected the inner bounds of the hindcast source region.")
         elif features.spatial_compatibility < 0.3:
-            explanations.append("Vessel was far from the reconstructed source region.")
+            explanations.append("Vessel remained far outside the calculated uncertainty bounds of the source region.")
             
         if features.temporal_compatibility > 0.8:
-            explanations.append("Vessel was present during the inferred release window.")
+            explanations.append("Vessel was physically present during the precise calculated release time window.")
             
-        if features.drift_compatibility > 0.8:
-            explanations.append("Forward drift from candidate location was consistent with observed slick.")
+        if features.drift_compatibility > 0.7:
+            explanations.append("Forward drift from candidate location strongly aligns with the observed slick coordinates.")
+            
+        if features.trajectory_compatibility > 0.6:
+            explanations.append("Vessel exhibited significant course changes or speed drops typical of operational discharges.")
             
         if features.ais_quality < 0.5:
-            explanations.append("AIS coverage contained significant gaps.")
+            explanations.append("AIS coverage during the critical release window was sparse or fragmented.")
             
         return explanations
 

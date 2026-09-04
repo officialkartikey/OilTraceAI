@@ -36,7 +36,7 @@ class InvestigationOrchestrator:
     async def analyze(self, investigation_id: str):
         try:
             logger.info(f"[INV-{investigation_id}] Pipeline started")
-            await self.inv_repo.update(investigation_id, {"status": "ANALYZING"})
+            await self.inv_repo.update(investigation_id, {"status": "ANALYZING", "current_stage": "OBSERVATION"})
 
             # 1. Observation
             stage = "OBSERVATION"
@@ -47,6 +47,7 @@ class InvestigationOrchestrator:
 
             # 2. Detection
             stage = "DETECTION"
+            await self.inv_repo.update(investigation_id, {"current_stage": stage})
             det = await self.det_repo.get_by_investigation(investigation_id)
             if not det:
                 det_in = await ml_client.detect(obs)
@@ -60,18 +61,28 @@ class InvestigationOrchestrator:
                 return
 
             # 3. Environment & Drift
-            stage = "DRIFT_RECONSTRUCTION"
+            stage = "ENVIRONMENT"
+            await self.inv_repo.update(investigation_id, {"current_stage": stage})
+            
+            # Use a time window representing the 12 hours prior to observation for env fetching
+            from datetime import timedelta
+            env_start = obs.timestamp - timedelta(hours=12)
+            
             env = environment_service.get_for_region_and_time(
-                geometry=det.geometry, 
-                start_time=obs.timestamp, 
+                geometry=det.geometry or obs.geospatial_bounds, 
+                start_time=env_start, 
                 end_time=obs.timestamp
             )
+            
+            stage = "HINDCAST"
+            await self.inv_repo.update(investigation_id, {"current_stage": stage})
             rec_in = drift_engine.reconstruct(det, env, observation=obs)
             rec = await self.rec_repo.create(rec_in)
             await self.inv_repo.update(investigation_id, {"reconstruction_id": rec.id})
 
             # 4. AIS Query (Candidates)
             stage = "AIS_CANDIDATE_SEARCH"
+            await self.inv_repo.update(investigation_id, {"current_stage": stage})
             candidates = await self.vessel_repo.find_candidates(
                 source_region=rec.source_region,
                 start_time=rec.release_window.start_time,
@@ -80,6 +91,7 @@ class InvestigationOrchestrator:
 
             # 5. Evidence Fusion & Attribution
             stage = "EVIDENCE_FUSION"
+            await self.inv_repo.update(investigation_id, {"current_stage": stage})
             if candidates:
                 features = evidence_engine.generate_features(candidates, det, rec)
                 ranked_candidates = attribution_engine.rank(candidates, features)

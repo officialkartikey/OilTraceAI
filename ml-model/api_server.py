@@ -228,7 +228,6 @@ async def analyze(file: UploadFile = File(...), spill_time: str = None,
         "detection": {
             "slick_detected": detection["slick_detected"],
             "confidence": detection["confidence"],
-            "iou_estimate": 0.5046,
             "area_pct": detection["area_pct"],
             "bounding_box_px": detection["bounding_box_px"],
             "centroid_px": detection["centroid_px"],

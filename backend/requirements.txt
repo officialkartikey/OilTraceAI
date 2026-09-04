@@ -10,3 +10,5 @@ pytest
 pytest-asyncio
 
 cloudinary==1.36.0
+opencv-python-headless
+numpy
