@@ -35,8 +35,8 @@ class MLClient:
                 with open(observation.image_reference, "rb") as f:
                     image_data = f.read()
         except Exception as e:
-            logger.warning(f"Failed to load image {observation.image_reference}: {e}. Creating dummy image.")
-            image_data = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg==")
+            logger.error(f"Failed to load image {observation.image_reference}: {e}.")
+            raise ValueError(f"Cannot process observation image: {e}")
         
         files = {"file": ("image.png", image_data, "image/png")}
         
@@ -45,48 +45,26 @@ class MLClient:
                 response = await client.post(f"{self.base_url}/analyze", files=files)
                 response.raise_for_status()
                 data = response.json()
-                
                 # Parse ML response into our internal domain schema
                 det_data = data.get("detection", {})
-                # PROTOTYPE HACK: Always force detection to True so the pipeline continues
-                detected = True
-                confidence = det_data.get("confidence") or 0.95
-                area_pct = det_data.get("area_pct") or 15.0
+                detected = det_data.get("slick_detected", False)
+                confidence = det_data.get("confidence")
+                area_pct = det_data.get("area_pct")
+                mask_ref = data.get("artifacts", {}).get("mask_base64")
                 
-                # Create a mock geometry for prototype if not provided
-                centroid = det_data.get("centroid_px")
                 geometry = None
-                if detected and observation.geospatial_bounds and "coordinates" in observation.geospatial_bounds:
-                    # Deterministic prototype-compatible transformation:
-                    # Shrink the observation bounding box to represent the slick.
-                    coords = observation.geospatial_bounds["coordinates"][0]
-                    # Compute centroid of observation bounds
-                    lons = [c[0] for c in coords]
-                    lats = [c[1] for c in coords]
-                    cent_lon = sum(lons) / len(lons)
-                    cent_lat = sum(lats) / len(lats)
-                    
-                    # Create a smaller polygon around the centroid (e.g. 5km box ~ 0.045 deg)
-                    offset = 0.045
-                    geometry = {
-                        "type": "Polygon",
-                        "coordinates": [[
-                            [cent_lon - offset, cent_lat - offset],
-                            [cent_lon + offset, cent_lat - offset],
-                            [cent_lon + offset, cent_lat + offset],
-                            [cent_lon - offset, cent_lat + offset],
-                            [cent_lon - offset, cent_lat - offset]
-                        ]]
-                    }
+                if detected and mask_ref:
+                    from app.core.gis import extract_geographic_polygon
+                    geometry = extract_geographic_polygon(mask_ref, observation.geospatial_bounds)
                 
                 return DetectionCreate(
                     investigation_id=observation.investigation_id,
                     observation_id=observation.id,
                     detected=detected,
                     confidence=confidence,
-                    area_km2=area_pct, # Mocking area
+                    area_pct=area_pct,
                     geometry=geometry,
-                    mask_ref=data.get("artifacts", {}).get("mask_base64"),
+                    mask_ref=mask_ref,
                     model=ModelProvenance(
                         name=data.get("model", {}).get("name", "Unknown"),
                         version=data.get("model", {}).get("version", "Unknown")

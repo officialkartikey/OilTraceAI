@@ -17,6 +17,7 @@ class InvestigationFailure(BaseModel):
 class Investigation(InvestigationBase):
     id: str = Field(..., alias="_id")
     status: str = "CREATED"
+    current_stage: str = "INITIALIZING"
     observation_ids: List[str] = []
     detection_id: Optional[str] = None
     reconstruction_id: Optional[str] = None

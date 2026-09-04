@@ -1,7 +1,7 @@
 from bson import ObjectId
 from app.core.db import get_database
 from app.schemas.vessel import AisRecord, VesselTrack, AisPosition
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,12 +21,13 @@ class VesselRepository:
         await self.collection.create_index([("vessel_id", 1), ("timestamp", 1)])
         logger.info("AIS indexes created.")
 
-    async def find_candidates(self, source_region: dict, start_time: datetime, end_time: datetime) -> list[VesselTrack]:
+    async def find_candidates(self, source_region: dict, start_time: datetime, end_time: datetime, buffer_hours: int = 3) -> list[VesselTrack]:
         """
-        Query AIS positions inside/near source region within release window.
-        Returns grouped trajectories.
+        Query AIS positions intersecting source region during the release window.
+        Then fetch a wider trajectory for matching candidates to enable honest attribution scoring.
         """
-        query = {
+        # 1. Identify candidate vessel_ids
+        initial_query = {
             "timestamp": {"$gte": start_time, "$lte": end_time},
             "location": {
                 "$geoIntersects": {
@@ -35,9 +36,28 @@ class VesselRepository:
             }
         }
         
-        cursor = self.collection.find(query)
-        records = []
+        cursor = self.collection.find(initial_query, {"vessel_id": 1})
+        candidate_ids = set()
         async for doc in cursor:
+            candidate_ids.add(doc["vessel_id"])
+            
+        if not candidate_ids:
+            return []
+            
+        logger.info(f"Found {len(candidate_ids)} candidate vessels. Fetching wider trajectories...")
+        
+        # 2. Fetch wider trajectory for these vessels
+        wide_start = start_time - timedelta(hours=buffer_hours)
+        wide_end = end_time + timedelta(hours=buffer_hours)
+        
+        full_query = {
+            "vessel_id": {"$in": list(candidate_ids)},
+            "timestamp": {"$gte": wide_start, "$lte": wide_end}
+        }
+        
+        full_cursor = self.collection.find(full_query)
+        records = []
+        async for doc in full_cursor:
             doc["_id"] = str(doc["_id"])
             records.append(AisRecord(**doc))
 

@@ -15,26 +15,39 @@ class SpatialEngine:
 
     def score(self, track: VesselTrack, source_region: dict) -> float:
         """
-        Calculate spatial compatibility.
+        Calculate spatial compatibility: minimum distance from track to source region perimeter/interior.
         """
-        # For simplicity, calculate distance from track points to the centroid of source region
+        # For a truly honest prototype, we calculate distance to the polygon edges.
+        # Since source region is a simple rectangle in our drift model:
         coords = source_region["coordinates"][0]
-        cent_lon = sum([c[0] for c in coords]) / len(coords)
-        cent_lat = sum([c[1] for c in coords]) / len(coords)
+        lons = [c[0] for c in coords]
+        lats = [c[1] for c in coords]
+        
+        min_lon, max_lon = min(lons), max(lons)
+        min_lat, max_lat = min(lats), max(lats)
         
         min_dist = float('inf')
         for pos in track.positions:
             lon, lat = pos.location["coordinates"]
-            dist = self.haversine(lon, lat, cent_lon, cent_lat)
+            
+            # Point in polygon check for AABB
+            if min_lon <= lon <= max_lon and min_lat <= lat <= max_lat:
+                return 1.0 # Inside the region
+                
+            # Otherwise find distance to nearest edge
+            clon = max(min_lon, min(lon, max_lon))
+            clat = max(min_lat, min(lat, max_lat))
+            
+            dist = self.haversine(lon, lat, clon, clat)
             if dist < min_dist:
                 min_dist = dist
                 
-        # Normalize: < 2km is 1.0, 10km is 0.0
-        if min_dist < 2.0:
+        # Normalize: < 5km is 1.0, 20km is 0.0
+        if min_dist < 5.0:
             return 1.0
-        elif min_dist > 10.0:
+        elif min_dist > 20.0:
             return 0.0
         else:
-            return 1.0 - ((min_dist - 2.0) / 8.0)
+            return 1.0 - ((min_dist - 5.0) / 15.0)
 
 spatial_engine = SpatialEngine()
