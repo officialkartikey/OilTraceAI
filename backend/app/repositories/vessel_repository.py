@@ -3,6 +3,7 @@ from app.core.db import get_database
 from app.schemas.vessel import AisRecord, VesselTrack, AisPosition
 from datetime import datetime, timedelta
 import logging
+from app.core.gis import bounding_box_around_point, geometry_centroid
 
 logger = logging.getLogger(__name__)
 
@@ -21,17 +22,30 @@ class VesselRepository:
         await self.collection.create_index([("vessel_id", 1), ("timestamp", 1)])
         logger.info("AIS indexes created.")
 
-    async def find_candidates(self, source_region: dict, start_time: datetime, end_time: datetime, buffer_hours: int = 3) -> list[VesselTrack]:
+    async def find_candidates(self, source_region: dict, start_time: datetime, end_time: datetime, buffer_hours: int = 3, search_radius_km: float = 330.0) -> list[VesselTrack]:
         """
         Query AIS positions intersecting source region during the release window.
         Then fetch a wider trajectory for matching candidates to enable honest attribution scoring.
         """
         # 1. Identify candidate vessel_ids
+        # Use a kilometer-based coarse filter so the search radius is consistent
+        # across the full Arabian Sea latitude range.
+        centroid = geometry_centroid(source_region)
+        if centroid:
+            center_lon, center_lat = centroid
+            search_region = bounding_box_around_point(
+                lat=center_lat,
+                lon=center_lon,
+                radius_km=search_radius_km,
+            )
+        else:
+            search_region = source_region
+
         initial_query = {
             "timestamp": {"$gte": start_time, "$lte": end_time},
             "location": {
                 "$geoIntersects": {
-                    "$geometry": source_region
+                    "$geometry": search_region
                 }
             }
         }

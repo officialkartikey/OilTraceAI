@@ -16,6 +16,7 @@ from app.repositories.reconstruction_repository import ReconstructionRepository
 from app.repositories.vessel_repository import VesselRepository
 from app.repositories.attribution_repository import attribution_repo
 from app.services.investigation_orchestrator import orchestrator
+from app.core.gis import bounding_box_around_point, geometry_centroid, is_in_arabian_sea_operating_area
 import logging
 
 logger = logging.getLogger(__name__)
@@ -57,7 +58,25 @@ async def get_active_spills():
         det = await det_repo.get_by_investigation(inv.id)
         
         area = det.area_km2 if (det and det.area_km2 is not None) else 0.0
-        lat, lng = 19.0, 72.8 # default
+        lat, lng = None, None
+        obs_list = await obs_repo.get_by_investigation(inv.id)
+        if det and det.geometry:
+            centroid = geometry_centroid(det.geometry)
+            if centroid:
+                lng, lat = centroid
+        if (lat is None or lng is None) and obs_list and obs_list[0].geospatial_bounds:
+            centroid = geometry_centroid(obs_list[0].geospatial_bounds)
+            if centroid:
+                lng, lat = centroid
+
+        current_location = {"lat": lat, "lng": lng} if lat is not None and lng is not None else None
+        hindcast_origin = None
+        rec = await rec_repo.get_by_investigation(inv.id)
+        if rec and rec.source_region:
+            centroid = geometry_centroid(rec.source_region)
+            if centroid:
+                origin_lng, origin_lat = centroid
+                hindcast_origin = {"lat": origin_lat, "lng": origin_lng}
         
         results.append({
             "id": inv.id,
@@ -65,8 +84,8 @@ async def get_active_spills():
             "detectedAt": inv.created_at.isoformat(),
             "status": "RESOLVED" if inv.status == "COMPLETED" else "ACTIVE",
             "areaSqKm": area,
-            "currentLocation": {"lat": lat, "lng": lng},
-            "hindcastOrigin": {"lat": 19.05, "lng": 72.85},
+            "currentLocation": current_location,
+            "hindcastOrigin": hindcast_origin,
             "culpritFound": len(inv.candidate_ids) > 0 if inv.candidate_ids else False
         })
     return {"success": True, "data": results}
@@ -104,6 +123,12 @@ async def add_observation(
     inv = await inv_repo.get(id)
     if not inv:
         raise HTTPException(status_code=404, detail="Investigation not found")
+
+    if not is_in_arabian_sea_operating_area(lat, lon):
+        raise HTTPException(
+            status_code=422,
+            detail="Coordinates are outside the supported Arabian Sea operating area."
+        )
         
     # Upload the file to Cloudinary
     try:
@@ -118,15 +143,8 @@ async def add_observation(
         
     # Create the observation
     from datetime import datetime
-    import json
     
-    # Simple polygon bounds around the provided lat/lon
-    # Create a roughly 30x30km box around the lat/lon
-    offset = 0.15 # approx 15km
-    generated_bounds = {
-        "type": "Polygon",
-        "coordinates": [[[lon - offset, lat - offset], [lon + offset, lat - offset], [lon + offset, lat + offset], [lon - offset, lat + offset], [lon - offset, lat - offset]]]
-    }
+    generated_bounds = bounding_box_around_point(lat=lat, lon=lon, radius_km=15.0)
     
     obs_in = ObservationCreate(
         timestamp=datetime.fromisoformat(timestamp.replace("Z", "+00:00")),

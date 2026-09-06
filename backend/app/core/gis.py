@@ -3,8 +3,75 @@ import numpy as np
 import base64
 from typing import Dict, Any, Optional
 import logging
+import math
 
 logger = logging.getLogger(__name__)
+
+ARABIAN_SEA_BOUNDS = {
+    "min_lat": -5.0,
+    "max_lat": 30.5,
+    "min_lon": 43.0,
+    "max_lon": 80.0,
+}
+
+
+def is_in_arabian_sea_operating_area(lat: float, lon: float) -> bool:
+    """
+    Broad operating envelope for the Arabian Sea and connected approaches.
+    This intentionally includes coastal margins so uploaded scenes near ports
+    and EEZ boundaries are accepted while clearly unrelated coordinates are rejected.
+    """
+    return (
+        ARABIAN_SEA_BOUNDS["min_lat"] <= lat <= ARABIAN_SEA_BOUNDS["max_lat"]
+        and ARABIAN_SEA_BOUNDS["min_lon"] <= lon <= ARABIAN_SEA_BOUNDS["max_lon"]
+    )
+
+
+def longitude_degrees_for_km(km: float, lat: float) -> float:
+    cos_lat = max(abs(math.cos(math.radians(lat))), 0.01)
+    return km / (111.320 * cos_lat)
+
+
+def latitude_degrees_for_km(km: float) -> float:
+    return km / 110.574
+
+
+def bounding_box_around_point(lat: float, lon: float, radius_km: float) -> Dict[str, Any]:
+    lat_delta = latitude_degrees_for_km(radius_km)
+    lon_delta = longitude_degrees_for_km(radius_km, lat)
+    return {
+        "type": "Polygon",
+        "coordinates": [[
+            [lon - lon_delta, lat - lat_delta],
+            [lon + lon_delta, lat - lat_delta],
+            [lon + lon_delta, lat + lat_delta],
+            [lon - lon_delta, lat + lat_delta],
+            [lon - lon_delta, lat - lat_delta],
+        ]],
+    }
+
+
+def geometry_centroid(geometry: Optional[Dict[str, Any]]) -> Optional[tuple[float, float]]:
+    if not geometry or "coordinates" not in geometry:
+        return None
+
+    try:
+        if geometry.get("type") == "Polygon":
+            coords = geometry["coordinates"][0]
+        elif geometry.get("type") == "MultiPolygon":
+            coords = geometry["coordinates"][0][0]
+        else:
+            return None
+
+        if not coords:
+            return None
+
+        open_ring = coords[:-1] if len(coords) > 1 and coords[0] == coords[-1] else coords
+        lons = [c[0] for c in open_ring]
+        lats = [c[1] for c in open_ring]
+        return sum(lons) / len(lons), sum(lats) / len(lats)
+    except (KeyError, IndexError, TypeError, ZeroDivisionError):
+        return None
 
 def extract_geographic_polygon(mask_b64: str, bounds: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """
