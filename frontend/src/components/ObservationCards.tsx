@@ -9,21 +9,21 @@ export default function ObservationCards() {
 
   const observation = data.observation;
   const detection = data.detection;
-  const suspects = data.attribution?.suspects || [];
-  const imageUrl = observation?.image_file || '';
+  const suspects = data.candidates || [];
+  const imageUrl = observation?.image_reference || '';
   
   const timestamp = observation?.timestamp ? new Date(observation.timestamp) : new Date();
   const dateStr = timestamp.toISOString().substring(0, 10);
   const timeStr = timestamp.toISOString().substring(11, 16);
   
-  const area = detection?.area_pct || '--';
+  const area = detection?.area_km2 !== undefined ? detection.area_km2 : (detection?.area_pct || '--');
 
   const chartData = [
     { time: 'T-120', probability: 0.1 },
     { time: 'T-90', probability: 0.15 },
     { time: 'T-60', probability: 0.35 },
     { time: 'T-30', probability: 0.75 },
-    { time: 'T-0', probability: suspects[0]?.suspect_score || 0.87 },
+    { time: 'T-0', probability: suspects[0]?.attribution_score || 0.87 },
   ];
 
   return (
@@ -61,16 +61,16 @@ export default function ObservationCards() {
           <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(14, 165, 233, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(14, 165, 233, 0.1) 1px, transparent 1px)', backgroundSize: '20px 20px', opacity: 0.5 }}></div>
           
           {/* Detection outline */}
-          {detection?.slick_detected && (
+          {detection?.detected && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ width: '45%', height: '35%', border: '1px solid var(--accent-yellow)', borderRadius: '30% 70% 60% 40%', boxShadow: '0 0 10px rgba(234, 179, 8, 0.3) inset', transform: 'rotate(-15deg)' }}></div>
             </div>
           )}
         </div>
-        <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '4px' }}>{observation?.satellite || 'Unknown Satellite'}</div>
+        <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '4px' }}>{observation?.sensor || 'Unknown Satellite'}</div>
         <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '12px' }}>{dateStr} • {timeStr} UTC</div>
         <div 
-          onClick={() => setObservationModalOpen(true)}
+          onClick={() => setObservationModalOpen?.(true)}
           style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', cursor: 'pointer', padding: '4px 0' }}
           onMouseOver={(e) => e.currentTarget.style.color = 'var(--text-primary)'}
           onMouseOut={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
@@ -123,7 +123,7 @@ export default function ObservationCards() {
           <div style={{ position: 'relative', flex: 1 }}>
             <div style={{ position: 'absolute', top: 0, left: 0, zIndex: 10 }}>
               <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Top Suspect Probability</div>
-              <div className="tactical-text" style={{ fontSize: '20px', color: 'var(--accent-red)', fontWeight: 600 }}>{suspects[0]?.suspect_score?.toFixed(2) || '0.00'}</div>
+              <div className="tactical-text" style={{ fontSize: '20px', color: 'var(--accent-red)', fontWeight: 600 }}>{suspects[0]?.attribution_score ? (suspects[0].attribution_score).toFixed(2) : '0.00'}</div>
             </div>
             <div style={{ width: '100%', height: '100px', marginTop: '20px' }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -131,7 +131,7 @@ export default function ObservationCards() {
                   <XAxis dataKey="time" stroke="var(--text-muted)" fontSize={9} tickLine={false} axisLine={false} />
                   <YAxis hide domain={[0, 1]} />
                   <Line type="monotone" dataKey="probability" stroke="var(--accent-red)" strokeWidth={2} dot={{ r: 3, fill: 'var(--bg-panel)', stroke: 'var(--accent-red)' }} />
-                  <ReferenceLine y={suspects[0]?.suspect_score || 0.87} stroke="var(--accent-red)" strokeDasharray="3 3" opacity={0.3} />
+                  <ReferenceLine y={suspects[0]?.attribution_score || 0.87} stroke="var(--accent-red)" strokeDasharray="3 3" opacity={0.3} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -167,14 +167,14 @@ export default function ObservationCards() {
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>High Risk Candidates</span>
-            <span className="tactical-text" style={{ color: 'var(--accent-red)' }}>{suspects.filter((s:any) => (s.score||0) > 0.8).length}</span>
+            <span className="tactical-text" style={{ color: 'var(--accent-red)' }}>{suspects.filter((s:any) => (s.attribution_score || 0) > 0.8).length}</span>
           </div>
         </div>
         <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'center' }}>
           <button 
             onClick={() => {
-              if (data.investigation.id) {
-                window.open(`/api/analysis/report/${data.investigation.id}`, '_blank');
+              if (data.investigation._id) {
+                window.open(`http://localhost:8080/api/v1/investigations/${data.investigation._id}/report`, '_blank');
               }
             }}
             style={{ 

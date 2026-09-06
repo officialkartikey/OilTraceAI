@@ -7,7 +7,7 @@ class TimeWindow(BaseModel):
     end_time: datetime
 
 class ReconstructionBase(BaseModel):
-    parameters: Dict[str, Any]
+    parameters: Dict[str, Any] = Field(default_factory=dict)
     release_window: TimeWindow
     source_region: Dict[str, Any] # GeoJSON Polygon
     hindcast_track: Optional[List[Dict[str, Any]]] = None
@@ -15,6 +15,10 @@ class ReconstructionBase(BaseModel):
     uncertainty_km: Optional[float] = None
     confidence: float
     model_version: str
+    hindcast_track: Optional[List[Dict[str, Any]]] = None
+    forecast_track: Optional[List[Dict[str, Any]]] = None
+    uncertainty_km: Optional[float] = None
+    horizon_hours: Optional[float] = None
 
 class ReconstructionCreate(ReconstructionBase):
     investigation_id: str

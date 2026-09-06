@@ -9,6 +9,7 @@ class ModelProvenance(BaseModel):
 class DetectionBase(BaseModel):
     detected: bool
     confidence: Optional[float] = None
+    area_km2: Optional[float] = None
     area_pct: Optional[float] = None
     geometry: Optional[Dict[str, Any]] = None # GeoJSON Polygon
     mask_ref: Optional[str] = None

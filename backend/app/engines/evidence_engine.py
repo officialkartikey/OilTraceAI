@@ -6,42 +6,55 @@ from app.engines.spatial_engine import spatial_engine
 from app.engines.temporal_engine import temporal_engine
 import math
 from datetime import datetime
+from typing import Optional
 
 class EvidenceEngine:
     def __init__(self):
         pass
         
-    def _calculate_ais_quality(self, track: VesselTrack, window_start: datetime, window_end: datetime) -> float:
-        # Check AIS ping frequency within the release window
-        if window_start.tzinfo is not None:
-            window_start = window_start.replace(tzinfo=None)
-        if window_end.tzinfo is not None:
-            window_end = window_end.replace(tzinfo=None)
-            
-        points_in_window = [p for p in track.positions if p.timestamp and 
-                            window_start <= p.timestamp.replace(tzinfo=None) <= window_end]
-                            
-        count = len(points_in_window)
-        if count == 0:
-            return 0.1 # Very low quality if no points in critical window
-        elif count >= 4:
-            return 1.0 # High quality if enough points
+    def _calculate_ais_quality(self, track: VesselTrack, window_start: Optional[datetime] = None, window_end: Optional[datetime] = None) -> float:
+        # Check AIS ping frequency within the release window if provided
+        if window_start is not None and window_end is not None:
+            if window_start.tzinfo is not None:
+                window_start = window_start.replace(tzinfo=None)
+            if window_end.tzinfo is not None:
+                window_end = window_end.replace(tzinfo=None)
+
+            points_in_window = [p for p in track.positions if p.timestamp and
+                                window_start <= p.timestamp.replace(tzinfo=None) <= window_end]
+
+            count = len(points_in_window)
+            if count == 0:
+                return 0.1 # Very low quality if no points in critical window
+            elif count >= 4:
+                return 1.0 # High quality if enough points
+            else:
+                return 0.5 + (count * 0.1)
         else:
-            return 0.5 + (count * 0.1)
+            # General track count heuristic fallback
+            count = len(track.positions)
+            if count == 0:
+                return 0.0
+            elif count < 5:
+                return 0.5
+            elif count > 20:
+                return 1.0
+            else:
+                return 0.5 + (count / 40.0)
             
-    def _calculate_drift_compatibility(self, track: VesselTrack, detection: Detection, reconstruction: Reconstruction) -> float:
+    def _calculate_drift_compatibility(self, track: VesselTrack, detection: Detection, reconstruction: Optional[Reconstruction] = None) -> float:
         # In an honest prototype, this simulates forward drift from the candidate's positions 
         # in the source region, and checks how close they get to the detected slick.
         # For the sake of this prototype, we will use the inverse of the spatial distance 
         # from the end of their track to the slick, penalized by how far off the horizon is.
         slick_lon, slick_lat = 72.85, 19.05
-        if detection.geometry and "coordinates" in detection.geometry:
-            coords = detection.geometry["coordinates"][0] if detection.geometry["type"] == "Polygon" else detection.geometry["coordinates"][0][0]
-            slick_lon = sum([c[0] for c in coords]) / len(coords)
-            slick_lat = sum([c[1] for c in coords]) / len(coords)
+        if detection and detection.geometry and "coordinates" in detection.geometry:
+            slick_lon, slick_lat = spatial_engine.get_centroid(detection.geometry, default_lon=72.85, default_lat=19.05)
             
         min_dist = float('inf')
         for pos in track.positions:
+            if not pos.location or "coordinates" not in pos.location:
+                continue
             pos_lon, pos_lat = pos.location["coordinates"]
             dist = spatial_engine.haversine(pos_lon, pos_lat, slick_lon, slick_lat)
             if dist < min_dist:
@@ -55,16 +68,23 @@ class EvidenceEngine:
         else:
             return 1.0 - ((min_dist - 5.0) / 25.0)
         
-    def _calculate_trajectory_compatibility(self, track: VesselTrack, reconstruction: Reconstruction) -> float:
+    def _calculate_trajectory_compatibility(self, track: VesselTrack, reconstruction: Optional[Reconstruction] = None) -> float:
         # Look for erratic turns (speed drops + heading changes) within the release window
-        if len(track.positions) < 3:
+        if len(track.positions) < 2:
             return 0.5
-            
-        window_start = reconstruction.release_window.start_time.replace(tzinfo=None)
-        window_end = reconstruction.release_window.end_time.replace(tzinfo=None)
-        
-        points_in_window = [p for p in track.positions if p.timestamp and 
-                            window_start <= p.timestamp.replace(tzinfo=None) <= window_end]
+
+        if reconstruction and reconstruction.release_window:
+            window_start = reconstruction.release_window.start_time
+            window_end = reconstruction.release_window.end_time
+            if window_start.tzinfo is not None:
+                window_start = window_start.replace(tzinfo=None)
+            if window_end.tzinfo is not None:
+                window_end = window_end.replace(tzinfo=None)
+
+            points_in_window = [p for p in track.positions if p.timestamp and
+                                window_start <= p.timestamp.replace(tzinfo=None) <= window_end]
+        else:
+            points_in_window = track.positions
                             
         if len(points_in_window) < 2:
             return 0.5
@@ -76,12 +96,12 @@ class EvidenceEngine:
             prev = points_in_window[i-1]
             curr = points_in_window[i]
             
-            if prev.heading and curr.heading:
+            if prev.heading is not None and curr.heading is not None:
                 turn = abs(curr.heading - prev.heading)
                 if turn > 180: turn = 360 - turn
                 if turn > max_turn: max_turn = turn
                 
-            if prev.speed and curr.speed:
+            if prev.speed is not None and curr.speed is not None:
                 drop = prev.speed - curr.speed
                 if drop > speed_drop: speed_drop = drop
             

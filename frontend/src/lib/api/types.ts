@@ -90,6 +90,7 @@ export interface InvestigationDetailResponse {
 
 export interface Alert {
   _id: string;
+  investigation_id?: string;
   observation_id: string;
   timestamp: string;
   satellite: string;

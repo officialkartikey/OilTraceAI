@@ -27,14 +27,23 @@ app = FastAPI(title="Kairos Backend", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+    ],
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition", "*"],
+    allow_private_network=True,
 )
 
 app.include_router(health.router, prefix="/health", tags=["health"])
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(vessels.router, prefix="/api/v1", tags=["vessels"])
 app.include_router(investigations.router, prefix="/api/v1/investigations", tags=["investigations"])
 
 if __name__ == "__main__":

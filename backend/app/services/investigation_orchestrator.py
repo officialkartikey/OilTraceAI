@@ -54,9 +54,11 @@ class InvestigationOrchestrator:
                 det = await self.det_repo.create(det_in)
                 await self.inv_repo.update(investigation_id, {"detection_id": det.id})
             
+            logger.info(f"[ANALYSIS] Detection completed: detected={det.detected}, confidence={det.confidence}")
+
             if not det.detected:
                 # We stop gracefully if no slick is detected
-                await self.inv_repo.update(investigation_id, {"status": "COMPLETED"})
+                await self.inv_repo.update(investigation_id, {"status": "COMPLETED", "current_stage": "COMPLETED"})
                 logger.info(f"[INV-{investigation_id}] No slick detected. Stopping pipeline.")
                 return
 
@@ -66,6 +68,7 @@ class InvestigationOrchestrator:
             
             # Use a time window representing the 12 hours prior to observation for env fetching
             from datetime import timedelta
+            from app.engines.spatial_engine import spatial_engine
             env_start = obs.timestamp - timedelta(hours=12)
             
             env = environment_service.get_for_region_and_time(
@@ -79,15 +82,36 @@ class InvestigationOrchestrator:
             rec_in = drift_engine.reconstruct(det, env, observation=obs)
             rec = await self.rec_repo.create(rec_in)
             await self.inv_repo.update(investigation_id, {"reconstruction_id": rec.id})
+            logger.info(
+                f"[ANALYSIS] Reconstruction completed: horizon={rec.horizon_hours}h, "
+                f"uncertainty={rec.uncertainty_km}km, window=[{rec.release_window.start_time} to {rec.release_window.end_time}]"
+            )
 
             # 4. AIS Query (Candidates)
             stage = "AIS_CANDIDATE_SEARCH"
             await self.inv_repo.update(investigation_id, {"current_stage": stage})
+            logger.info(f"[ANALYSIS] Starting attribution for investigation {investigation_id}")
+            logger.info(f"[ATTRIBUTION] Searching AIS candidates...")
+            
             candidates = await self.vessel_repo.find_candidates(
                 source_region=rec.source_region,
                 start_time=rec.release_window.start_time,
                 end_time=rec.release_window.end_time
             )
+            logger.info(f"[ATTRIBUTION] Candidate count = {len(candidates)}")
+
+            # Extract bounds for diagnostic summary
+            det_pts = spatial_engine.extract_coordinates(det.geometry) if det and det.geometry else []
+            det_bounds = (
+                f"lon=[{min(c[0] for c in det_pts):.4f}, {max(c[0] for c in det_pts):.4f}], "
+                f"lat=[{min(c[1] for c in det_pts):.4f}, {max(c[1] for c in det_pts):.4f}]"
+            ) if det_pts else "N/A"
+            
+            sr_pts = spatial_engine.extract_coordinates(rec.source_region) if rec and rec.source_region else []
+            sr_bounds = (
+                f"lon=[{min(c[0] for c in sr_pts):.4f}, {max(c[0] for c in sr_pts):.4f}], "
+                f"lat=[{min(c[1] for c in sr_pts):.4f}, {max(c[1] for c in sr_pts):.4f}]"
+            ) if sr_pts else "N/A"
 
             # 5. Evidence Fusion & Attribution
             stage = "EVIDENCE_FUSION"
@@ -95,21 +119,47 @@ class InvestigationOrchestrator:
             if candidates:
                 features = evidence_engine.generate_features(candidates, det, rec)
                 ranked_candidates = attribution_engine.rank(candidates, features)
+                logger.info(f"[ATTRIBUTION] Ranking completed: {len(ranked_candidates)} candidates ranked")
                 
                 # Persist attribution
+                logger.info(f"[ATTRIBUTION] Persisting attribution...")
                 attr_id = await attribution_repo.create(
                     investigation_id, 
                     [r.model_dump() for r in ranked_candidates]
                 )
+                logger.info(f"[ATTRIBUTION] Attribution persisted: id={attr_id}")
                 candidate_ids = [c.vessel.vessel_id for c in ranked_candidates]
                 await self.inv_repo.update(investigation_id, {
                     "candidate_ids": candidate_ids,
                     "attribution_id": attr_id,
+                    "current_stage": "COMPLETED",
                     "status": "COMPLETED"
                 })
             else:
-                await self.inv_repo.update(investigation_id, {"status": "COMPLETED"})
-                logger.warning(f"[INV-{investigation_id}] No candidates found.")
+                logger.warning(f"[ATTRIBUTION] No candidate vessels found for investigation {investigation_id}")
+                attr_id = await attribution_repo.create(investigation_id, [])
+                candidate_ids = []
+                await self.inv_repo.update(investigation_id, {
+                    "candidate_ids": [],
+                    "attribution_id": attr_id,
+                    "current_stage": "COMPLETED",
+                    "status": "COMPLETED"
+                })
+
+            # Full diagnostic summary log
+            logger.info(
+                f"[ATTRIBUTION] Diagnostic summary:\n"
+                f"  investigation_id={investigation_id}\n"
+                f"  detection_result={det.detected} (confidence={det.confidence})\n"
+                f"  detection_geometry_bounds={det_bounds}\n"
+                f"  reconstruction_source_region={sr_bounds}\n"
+                f"  release_window={rec.release_window.start_time} to {rec.release_window.end_time}\n"
+                f"  candidates_generated={len(candidates)}\n"
+                f"  candidates_ranked={len(candidate_ids)}\n"
+                f"  candidate_ids={candidate_ids}\n"
+                f"  attribution_id={attr_id}\n"
+                f"  investigation_status=COMPLETED"
+            )
 
             logger.info(f"[INV-{investigation_id}] Pipeline completed")
 

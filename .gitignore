@@ -1,7 +1,20 @@
-ml-model/best_model.pth
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Python virtual environments
+venv/
+.venv/
+ml-model/venv/
+
+# ML model files
 ml-model/*.pth
-ml-model/__pycache__/
 ml-model/*.csv
 
-.env.local
+# Environment files
 .env
+.env.local
+
+# Node
+node_modules/
+.next/

@@ -1,5 +1,5 @@
-const rawBase = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080/api/v1/';
-const API_BASE_URL = rawBase.endsWith('/') ? rawBase.slice(0, -1) : rawBase;
+const rawBase = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8080/api/v1/').replace(/\/+$/, '');
+const API_BASE_URL = rawBase.endsWith('/investigations') ? rawBase.slice(0, -'/investigations'.length) : rawBase;
 
 export class ApiError extends Error {
   status: number;

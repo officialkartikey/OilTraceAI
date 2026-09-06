@@ -90,7 +90,7 @@ function InvestigationWorkspace() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          {isFailed ? (
+          {isFailed && (
             <button 
               onClick={async () => {
                 await kairosClient.triggerAnalysis(data.investigation._id);
@@ -100,12 +100,15 @@ function InvestigationWorkspace() {
             >
               <RefreshCw size={14} /> Retry Analysis
             </button>
-          ) : (
-            <button style={{ padding: '8px 16px', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)', borderRadius: '4px', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-              <Play size={14} /> REPLAY INCIDENT
-            </button>
           )}
-          <button style={{ padding: '8px 16px', background: isFailed ? 'transparent' : 'var(--accent-cyan)', border: isFailed ? '1px solid var(--border-color)' : 'none', color: isFailed ? 'var(--text-secondary)' : '#000', borderRadius: '4px', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+          <button 
+            onClick={() => {
+              if (data.investigation._id) {
+                window.open(kairosClient.getReportUrl(data.investigation._id), '_blank');
+              }
+            }}
+            style={{ padding: '8px 16px', background: isFailed ? 'transparent' : 'var(--accent-cyan)', border: isFailed ? '1px solid var(--border-color)' : 'none', color: isFailed ? 'var(--text-secondary)' : '#000', borderRadius: '4px', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+          >
             {isFailed ? 'Export Log' : <><Download size={14} /> EXPORT REPORT</>}
           </button>
           
@@ -126,15 +129,27 @@ function InvestigationWorkspace() {
       {/* Main 3-Column Layout */}
       <div style={{ flex: 1, display: 'grid', gridTemplateColumns: `${isPipelineOpen ? '320px' : '0px'} 1fr ${isIntelligenceOpen ? '380px' : '0px'}`, overflow: 'hidden', transition: 'grid-template-columns 0.3s ease' }}>
         
-        {/* Left Column */}
-        <div style={{ background: 'var(--bg-sidebar)', borderRight: isPipelineOpen ? '1px solid var(--border-color)' : 'none', padding: isPipelineOpen ? '24px' : '0', overflowY: 'auto', overflowX: 'hidden', opacity: isPipelineOpen ? 1 : 0, transition: 'all 0.3s ease' }}>
-          <InvestigationPipeline />
+        {/* Left Column - Pipeline Only */}
+        <div style={{ 
+          background: 'var(--bg-sidebar)', 
+          borderRight: isPipelineOpen ? '1px solid var(--border-color)' : 'none', 
+          padding: isPipelineOpen ? '20px 16px' : '0', 
+          overflowY: 'auto', 
+          overflowX: 'hidden', 
+          opacity: isPipelineOpen ? 1 : 0, 
+          transition: 'all 0.3s ease',
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <InvestigationPipeline />
+          </div>
         </div>
         
-        {/* Center Column (Map & Timeline) */}
-        <div style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ flex: 1, position: 'relative' }}>
-            <MapWidget />
+        {/* Center Column (Map without culprit tracks) */}
+        <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
+          <div style={{ flex: 1, position: 'relative', height: '100%', width: '100%' }}>
+            <MapWidget showVesselTracks={false} />
             
             {/* Map Crosshairs Overlay */}
             <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', backgroundImage: 'linear-gradient(rgba(14, 165, 233, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(14, 165, 233, 0.05) 1px, transparent 1px)', backgroundSize: '40px 40px', zIndex: 400 }}></div>
@@ -146,26 +161,6 @@ function InvestigationWorkspace() {
                 <p style={{ color: 'var(--text-secondary)', fontSize: '12px', maxWidth: '250px' }}>ML detection unavailable for this investigation. Contextual geometry cannot be rendered.</p>
               </div>
             )}
-          </div>
-
-          {/* Evidence Fusion Timeline */}
-          <div style={{ height: '80px', minHeight: '80px', borderTop: '1px solid var(--border-color)', background: 'var(--bg-panel)', padding: '16px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <div style={{ fontSize: '10px', color: 'var(--text-primary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>EVIDENCE FUSION TIMELINE (UTC-48H)</div>
-              <div style={{ fontSize: '10px', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'currentColor' }}></div>
-                CURRENT: {timestamp.toUTCString().replace('GMT', 'UTC').toUpperCase()}
-              </div>
-            </div>
-            <div style={{ position: 'relative', height: '2px', background: 'var(--border-color)', marginTop: '8px' }}>
-              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '80%', background: 'var(--accent-cyan)' }}></div>
-              <div style={{ position: 'absolute', left: '20%', top: '-6px', width: '2px', height: '14px', background: '#fff' }}></div>
-              <div style={{ position: 'absolute', left: '20%', top: '10px', fontSize: '10px', color: 'var(--text-muted)', transform: 'translateX(-50%)' }}>T-48h</div>
-              <div style={{ position: 'absolute', left: '50%', top: '-6px', width: '2px', height: '14px', background: '#fff' }}></div>
-              <div style={{ position: 'absolute', left: '50%', top: '10px', fontSize: '10px', color: 'var(--text-muted)', transform: 'translateX(-50%)' }}>Spill Est.</div>
-              <div style={{ position: 'absolute', left: '80%', top: '-10px', width: '12px', height: '20px', border: '2px solid var(--accent-cyan)', background: 'var(--bg-base)', transform: 'translateX(-50%)' }}></div>
-              <div style={{ position: 'absolute', left: '80%', top: '12px', fontSize: '10px', color: 'var(--accent-cyan)', fontWeight: 600, transform: 'translateX(-50%)' }}>Detection</div>
-            </div>
           </div>
         </div>
 

@@ -1,4 +1,5 @@
 import math
+from typing import Any, Tuple, Optional
 from app.schemas.vessel import VesselTrack
 
 class SpatialEngine:
@@ -13,18 +14,48 @@ class SpatialEngine:
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
         return R * c
 
+    def extract_coordinates(self, geometry: Any) -> list[list[float]]:
+        """
+        Recursively extract all [lon, lat] coordinate pairs from any GeoJSON geometry or nested list.
+        """
+        coords = geometry.get("coordinates", []) if isinstance(geometry, dict) else (geometry if isinstance(geometry, (list, tuple)) else [])
+        flattened: list[list[float]] = []
+        def _extract(c):
+            if isinstance(c, (list, tuple)):
+                if len(c) >= 2 and isinstance(c[0], (int, float)) and isinstance(c[1], (int, float)):
+                    flattened.append([float(c[0]), float(c[1])])
+                else:
+                    for sub in c:
+                        _extract(sub)
+        _extract(coords)
+        return flattened
+
+    def get_centroid(self, geometry: Any, default_lon: float = 72.85, default_lat: float = 19.05) -> Tuple[float, float]:
+        """
+        Calculate centroid (lon, lat) of any GeoJSON geometry with fallback defaults.
+        """
+        pts = self.extract_coordinates(geometry)
+        if pts:
+            return sum([p[0] for p in pts]) / len(pts), sum([p[1] for p in pts]) / len(pts)
+        return default_lon, default_lat
+
     def score(self, track: VesselTrack, source_region: dict) -> float:
         """
         Calculate spatial compatibility: minimum distance from track to source region perimeter/interior.
+        Combines robust geometry parsing with polygon perimeter/interior distance calculations.
         """
-        # For a truly honest prototype, we calculate distance to the polygon edges.
-        # Since source region is a simple rectangle in our drift model:
-        coords = source_region["coordinates"][0]
-        lons = [c[0] for c in coords]
-        lats = [c[1] for c in coords]
-        
-        min_lon, max_lon = min(lons), max(lons)
-        min_lat, max_lat = min(lats), max(lats)
+        pts = self.extract_coordinates(source_region)
+        if pts:
+            lons = [c[0] for c in pts]
+            lats = [c[1] for c in pts]
+            min_lon, max_lon = min(lons), max(lons)
+            min_lat, max_lat = min(lats), max(lats)
+            cent_lon = sum(lons) / len(lons)
+            cent_lat = sum(lats) / len(lats)
+        else:
+            min_lon, max_lon = 72.85, 72.85
+            min_lat, max_lat = 19.05, 19.05
+            cent_lon, cent_lat = 72.85, 19.05
         
         min_dist = float('inf')
         for pos in track.positions:
