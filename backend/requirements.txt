@@ -12,3 +12,6 @@ pytest-asyncio
 cloudinary==1.36.0
 opencv-python-headless
 numpy
+fpdf2
+python-multipart
+Pillow

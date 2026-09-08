@@ -5,13 +5,62 @@ from app.schemas.fusion import CandidateFeatures
 from app.engines.spatial_engine import spatial_engine
 from app.engines.temporal_engine import temporal_engine
 import math
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 class EvidenceEngine:
     def __init__(self):
         pass
         
+    def _calculate_ais_gap_score(self, track: VesselTrack, window_start: Optional[datetime] = None, window_end: Optional[datetime] = None) -> float:
+        """
+        Flags a vessel that shows a suspicious AIS transmission gap around
+        the release window -- a documented evasion tactic where a vessel
+        switches its transponder off before an illegal discharge and back on
+        afterward. The "normal" ping cadence is estimated per-vessel (its own
+        median inter-ping interval), so this adapts to whatever reporting
+        density that vessel's feed actually has, rather than a fixed
+        absolute threshold. Returns 0.0 (no suspicious gap) to 1.0 (a large,
+        release-window-aligned gap).
+        """
+        positions = sorted(
+            [p for p in track.positions if p.timestamp],
+            key=lambda p: p.timestamp
+        )
+        if len(positions) < 3:
+            return 0.0  # too few pings to judge a "gap" meaningfully
+
+        def naive(t):
+            return t.replace(tzinfo=None) if t.tzinfo is not None else t
+
+        gaps = []
+        for i in range(1, len(positions)):
+            t0 = naive(positions[i - 1].timestamp)
+            t1 = naive(positions[i].timestamp)
+            gaps.append(((t1 - t0).total_seconds() / 60.0, t0, t1))
+
+        gap_minutes_sorted = sorted(g[0] for g in gaps)
+        median_gap = gap_minutes_sorted[len(gap_minutes_sorted) // 2]
+        baseline = max(median_gap, 10.0)  # floor avoids over-sensitivity on very dense tracks
+
+        w_start = w_end = None
+        if window_start is not None and window_end is not None:
+            w_start = naive(window_start) - timedelta(hours=1)
+            w_end = naive(window_end) + timedelta(hours=1)
+
+        worst_ratio = 0.0
+        for gap_minutes, t0, t1 in gaps:
+            if w_start is not None and (t1 < w_start or t0 > w_end):
+                continue  # gap doesn't overlap the release window (+/- buffer)
+            worst_ratio = max(worst_ratio, gap_minutes / baseline)
+
+        # ratio <=2x normal cadence -> not suspicious; >=8x -> fully suspicious
+        if worst_ratio <= 2.0:
+            return 0.0
+        if worst_ratio >= 8.0:
+            return 1.0
+        return (worst_ratio - 2.0) / 6.0
+
     def _calculate_ais_quality(self, track: VesselTrack, window_start: Optional[datetime] = None, window_end: Optional[datetime] = None) -> float:
         # Check AIS ping frequency within the release window if provided
         if window_start is not None and window_end is not None:
@@ -117,14 +166,16 @@ class EvidenceEngine:
             drift_score = self._calculate_drift_compatibility(track, detection, reconstruction)
             trajectory_score = self._calculate_trajectory_compatibility(track, reconstruction)
             ais_quality = self._calculate_ais_quality(track, reconstruction.release_window.start_time, reconstruction.release_window.end_time)
-            
+            ais_gap_score = self._calculate_ais_gap_score(track, reconstruction.release_window.start_time, reconstruction.release_window.end_time)
+
             features.append(CandidateFeatures(
                 vessel_id=track.vessel_id,
                 spatial_compatibility=spatial_score,
                 temporal_compatibility=temporal_score,
                 drift_compatibility=drift_score,
                 trajectory_compatibility=trajectory_score,
-                ais_quality=ais_quality
+                ais_quality=ais_quality,
+                ais_gap_score=ais_gap_score
             ))
             
         return features

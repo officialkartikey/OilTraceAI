@@ -5,11 +5,12 @@ class AttributionEngine:
     def __init__(self):
         # Weights for prototype heuristic
         self.weights = {
-            "spatial": 0.30,
-            "temporal": 0.25,
-            "drift": 0.20,
-            "trajectory": 0.15,
-            "ais_quality": 0.10
+            "spatial": 0.28,
+            "temporal": 0.23,
+            "drift": 0.18,
+            "trajectory": 0.13,
+            "ais_quality": 0.08,
+            "ais_gap": 0.10
         }
 
     def _generate_explanations(self, features: CandidateFeatures) -> list[str]:
@@ -30,7 +31,10 @@ class AttributionEngine:
             
         if features.ais_quality < 0.5:
             explanations.append("AIS coverage during the critical release window was sparse or fragmented.")
-            
+
+        if features.ais_gap_score > 0.5:
+            explanations.append("Vessel showed a suspicious AIS transmission gap overlapping the release window, consistent with intentional signal suppression before an illegal discharge.")
+
         return explanations
 
     def rank(self, candidates: list[VesselTrack], features: list[CandidateFeatures]) -> list[RankedCandidate]:
@@ -47,7 +51,8 @@ class AttributionEngine:
                 feat.temporal_compatibility * self.weights["temporal"] +
                 feat.drift_compatibility * self.weights["drift"] +
                 feat.trajectory_compatibility * self.weights["trajectory"] +
-                feat.ais_quality * self.weights["ais_quality"]
+                feat.ais_quality * self.weights["ais_quality"] +
+                feat.ais_gap_score * self.weights["ais_gap"]
             )
             
             evidence = EvidenceScore(
@@ -55,7 +60,8 @@ class AttributionEngine:
                 temporal=feat.temporal_compatibility,
                 drift=feat.drift_compatibility,
                 trajectory=feat.trajectory_compatibility,
-                ais_quality=feat.ais_quality
+                ais_quality=feat.ais_quality,
+                ais_gap=feat.ais_gap_score
             )
             
             explanations = self._generate_explanations(feat)

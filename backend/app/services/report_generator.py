@@ -21,7 +21,7 @@ Exports complete incident investigation dossier including:
 import os
 import tempfile
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
 from PIL import Image, ImageDraw

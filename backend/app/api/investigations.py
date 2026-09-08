@@ -1,8 +1,10 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fpdf import FPDF
 import tempfile
 import os
+import json
+from datetime import datetime
 from typing import Optional, List
 from app.schemas.investigation import InvestigationCreate, Investigation
 from app.schemas.observation import ObservationCreate, Observation
@@ -396,6 +398,124 @@ async def generate_report(id: str):
         pdf_path,
         media_type='application/pdf',
         filename=f"Kairos_Report_{id}.pdf"
+    )
+
+
+@router.get("/{id}/export/geojson")
+async def export_geojson(id: str):
+    """
+    Exports the investigation as a GeoJSON FeatureCollection -- the detected
+    slick polygon, the estimated release-origin region, the hindcast/forecast
+    drift tracks, and each ranked suspect vessel's track and latest position.
+    Meant to be imported directly into GIS tools (QGIS, ArcGIS, Google Earth)
+    used by real spill-response and enforcement teams.
+    """
+    inv = await inv_repo.get(id)
+    if not inv:
+        raise HTTPException(status_code=404, detail="Investigation not found")
+
+    det = await det_repo.get_by_investigation(id)
+    rec = await rec_repo.get_by_investigation(id)
+    attr_data = await attribution_repo.get_by_investigation(id)
+    candidates = []
+    if attr_data and "ranked_candidates" in attr_data:
+        candidates = attr_data["ranked_candidates"]
+
+    features = []
+
+    if det and getattr(det, "geometry", None):
+        features.append({
+            "type": "Feature",
+            "geometry": det.geometry,
+            "properties": {
+                "feature_type": "oil_spill_detection",
+                "confidence": getattr(det, "confidence", None),
+                "area_km2": getattr(det, "area_km2", None),
+                "area_pct": getattr(det, "area_pct", None),
+            }
+        })
+
+    if rec and getattr(rec, "source_region", None):
+        features.append({
+            "type": "Feature",
+            "geometry": rec.source_region,
+            "properties": {
+                "feature_type": "estimated_release_origin",
+                "uncertainty_km": getattr(rec, "uncertainty_km", None),
+                "release_window_start": rec.release_window.start_time.isoformat() if rec.release_window else None,
+                "release_window_end": rec.release_window.end_time.isoformat() if rec.release_window else None,
+            }
+        })
+
+    def track_to_linestring(track_points, feature_type):
+        coords = []
+        for p in (track_points or []):
+            lat = p.get("lat") if isinstance(p, dict) else None
+            lon = p.get("lon") if isinstance(p, dict) else None
+            if lat is not None and lon is not None:
+                coords.append([lon, lat])
+        if len(coords) < 2:
+            return None
+        return {
+            "type": "Feature",
+            "geometry": {"type": "LineString", "coordinates": coords},
+            "properties": {"feature_type": feature_type}
+        }
+
+    if rec:
+        hindcast_feat = track_to_linestring(getattr(rec, "hindcast_track", None), "hindcast_track")
+        if hindcast_feat:
+            features.append(hindcast_feat)
+        forecast_feat = track_to_linestring(getattr(rec, "forecast_track", None), "forecast_track")
+        if forecast_feat:
+            features.append(forecast_feat)
+
+    for cand in candidates:
+        vessel = cand.get("vessel", {}) if isinstance(cand, dict) else {}
+        positions = vessel.get("positions", []) if isinstance(vessel, dict) else []
+        coords = []
+        for pos in positions:
+            loc = pos.get("location", {}) if isinstance(pos, dict) else {}
+            c = loc.get("coordinates") if isinstance(loc, dict) else None
+            if c and len(c) == 2:
+                coords.append(c)  # GeoJSON Point coords are already [lon, lat]
+
+        vessel_props = {
+            "vessel_id": vessel.get("vessel_id"),
+            "name": vessel.get("name"),
+            "mmsi": vessel.get("mmsi"),
+            "rank": cand.get("rank") if isinstance(cand, dict) else None,
+            "attribution_score": cand.get("attribution_score") if isinstance(cand, dict) else None,
+        }
+
+        if len(coords) >= 2:
+            features.append({
+                "type": "Feature",
+                "geometry": {"type": "LineString", "coordinates": coords},
+                "properties": {"feature_type": "vessel_track", **vessel_props}
+            })
+        if coords:
+            features.append({
+                "type": "Feature",
+                "geometry": {"type": "Point", "coordinates": coords[-1]},
+                "properties": {"feature_type": "vessel_latest_position", **vessel_props}
+            })
+
+    feature_collection = {
+        "type": "FeatureCollection",
+        "properties": {
+            "investigation_id": id,
+            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "source": "OilTraceAI"
+        },
+        "features": features
+    }
+
+    body = json.dumps(feature_collection, default=str, indent=2)
+    return Response(
+        content=body,
+        media_type="application/geo+json",
+        headers={"Content-Disposition": f'attachment; filename="investigation_{id}.geojson"'}
     )
 
 @router.get("/{id}/timeline")

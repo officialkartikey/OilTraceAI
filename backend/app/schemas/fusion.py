@@ -9,6 +9,7 @@ class CandidateFeatures(BaseModel):
     drift_compatibility: float
     trajectory_compatibility: float
     ais_quality: float
+    ais_gap_score: float = 0.0
 
 class EvidenceScore(BaseModel):
     spatial: float
@@ -16,6 +17,7 @@ class EvidenceScore(BaseModel):
     drift: float
     trajectory: float
     ais_quality: float
+    ais_gap: float = 0.0
 
 class RankedCandidate(BaseModel):
     rank: int

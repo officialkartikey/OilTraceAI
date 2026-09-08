@@ -146,9 +146,16 @@ class VesselRepository:
                     imo=r.imo,
                     name=r.name,
                     vessel_type=r.vessel_type,
-                    positions=[]
+                    positions=[],
+                    # A track counts as synthetic only if every position on it
+                    # came from the simulator -- a vessel with any real ping
+                    # is real traffic.
+                    synthetic=True,
                 )
-            
+
+            if not r.synthetic:
+                tracks[r.vessel_id].synthetic = False
+
             tracks[r.vessel_id].positions.append(
                 AisPosition(
                     timestamp=r.timestamp, 

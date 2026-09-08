@@ -12,7 +12,7 @@ db = Database()
 async def connect_to_mongo():
     logger.info("Connecting to MongoDB...")
     try:
-        db.client = AsyncIOMotorClient(settings.mongodb_uri, serverSelectionTimeoutMS=2000)
+        db.client = AsyncIOMotorClient(settings.mongodb_uri, serverSelectionTimeoutMS=15000)
         # Attempt to fetch server info to verify connection
         await db.client.server_info()
         logger.info("Connected to MongoDB.")

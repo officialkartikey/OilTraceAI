@@ -16,6 +16,11 @@ class VesselTrack(BaseModel):
     name: Optional[str] = None
     vessel_type: Optional[str] = None
     positions: List[AisPosition] = []
+    # True if this vessel's positions come from the AIS simulator rather than
+    # a real feed. Lets the orchestrator report attribution provenance
+    # accurately, even on a later run that just re-reads previously
+    # generated records.
+    synthetic: bool = False
 
 class AisRecordBase(BaseModel):
     vessel_id: str
@@ -28,6 +33,8 @@ class AisRecordBase(BaseModel):
     vessel_type: Optional[str] = None
     mmsi: Optional[str] = None
     imo: Optional[str] = None
+    synthetic: bool = False
+    data_source: Optional[str] = None
 
 class AisRecord(AisRecordBase):
     id: str = Field(..., alias="_id")

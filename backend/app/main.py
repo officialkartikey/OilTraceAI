@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.db import connect_to_mongo, close_mongo_connection
-from app.api import investigations, vessels, health, auth
+from app.api import investigations, vessels, health, auth, chat
 
 logger = logging.getLogger(__name__)
 
@@ -38,13 +38,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["Content-Disposition", "*"],
-    allow_private_network=True,
 )
 
 app.include_router(health.router, prefix="/health", tags=["health"])
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(vessels.router, prefix="/api/v1", tags=["vessels"])
 app.include_router(investigations.router, prefix="/api/v1/investigations", tags=["investigations"])
+app.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])
 
 if __name__ == "__main__":
     import uvicorn

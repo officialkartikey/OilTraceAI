@@ -12,6 +12,7 @@ from app.services.environment_service import environment_service
 from app.engines.drift_engine import drift_engine
 from app.engines.evidence_engine import evidence_engine
 from app.engines.attribution_engine import attribution_engine
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,52 @@ class InvestigationOrchestrator:
                 end_time=rec.release_window.end_time
             )
             logger.info(f"[ATTRIBUTION] Candidate count = {len(candidates)}")
+
+            # Public bulk AIS only covers some regions, and incident-correlated
+            # AIS is rarely available at all. If no real traffic intersects the
+            # reconstructed source region, fall back to simulated traffic
+            # generated around *this* region and release window, so attribution
+            # still has something to reason over. Every simulated record is
+            # tagged so downstream consumers can label it as such.
+            ais_data_source = "real"
+            if not candidates and settings.enable_ais_simulation:
+                logger.warning(
+                    "[ATTRIBUTION] No real AIS coverage for this region/window. "
+                    "Falling back to simulated traffic."
+                )
+                from app.services.ais_simulator import ais_simulator
+                generated = await ais_simulator.generate_for_region(
+                    source_region=rec.source_region,
+                    window_start=rec.release_window.start_time,
+                    window_end=rec.release_window.end_time,
+                )
+                if generated:
+                    candidates = await self.vessel_repo.find_candidates(
+                        source_region=rec.source_region,
+                        start_time=rec.release_window.start_time,
+                        end_time=rec.release_window.end_time
+                    )
+                    logger.info(
+                        f"[ATTRIBUTION] Candidate count after simulation = {len(candidates)}"
+                    )
+
+            # Provenance is decided by what the candidates actually are, not by
+            # which query round found them -- a later /analyze run on the same
+            # investigation will find previously-simulated records sitting in
+            # the same collection on its *first* query, which would otherwise
+            # get mislabelled "real". If every candidate is synthetic, label
+            # the whole batch "simulated"; if any is real, label it "real";
+            # a genuine mix is labelled "mixed" so nothing is overstated.
+            if candidates:
+                synthetic_flags = [getattr(c, "synthetic", False) for c in candidates]
+                if all(synthetic_flags):
+                    ais_data_source = "simulated"
+                elif any(synthetic_flags):
+                    ais_data_source = "mixed"
+                else:
+                    ais_data_source = "real"
+
+            await self.inv_repo.update(investigation_id, {"ais_data_source": ais_data_source})
 
             # Extract bounds for diagnostic summary
             det_pts = spatial_engine.extract_coordinates(det.geometry) if det and det.geometry else []
