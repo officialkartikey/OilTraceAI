@@ -148,7 +148,7 @@ export default function ObservationsPage() {
               </span>
               <Satellite size={16} color="var(--accent-cyan)" />
             </div>
-            <div style={{ fontSize: '24px', fontWeight: 700, color: '#f8fafc', marginTop: '8px', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '8px', fontFamily: 'var(--font-mono)' }}>
               {spills.length || 10}
             </div>
             <div style={{ fontSize: '11px', color: 'var(--accent-cyan)', marginTop: '4px' }}>
@@ -178,7 +178,7 @@ export default function ObservationsPage() {
               </span>
               <Compass size={16} color="var(--accent-blue)" />
             </div>
-            <div style={{ fontSize: '24px', fontWeight: 700, color: '#f8fafc', marginTop: '8px', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '8px', fontFamily: 'var(--font-mono)' }}>
               10 m
             </div>
             <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
@@ -214,11 +214,12 @@ export default function ObservationsPage() {
             <span style={{ 
               fontSize: '11px', 
               color: 'var(--accent-cyan)', 
-              background: 'rgba(56, 189, 248, 0.1)', 
+              background: 'rgba(14, 165, 233, 0.1)', 
               padding: '2px 8px', 
-              borderRadius: '4px',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
-              fontFamily: 'monospace' 
+              borderRadius: '4px', 
+              border: '1px solid rgba(14, 165, 233, 0.25)', 
+              fontFamily: 'var(--font-mono)',
+              fontWeight: 700
             }}>
               {alerts.length} DETECTIONS
             </span>
@@ -242,8 +243,8 @@ export default function ObservationsPage() {
               display: 'flex', 
               flexDirection: 'column', 
               alignItems: 'center', 
-              gap: '12px',
-              textAlign: 'center'
+              gap: '12px', 
+              textAlign: 'center' 
             }}>
               <AlertTriangle size={24} color="var(--accent-red)" />
               <span style={{ fontSize: '13px', color: 'var(--accent-red)' }}>{alertsError}</span>
@@ -289,7 +290,7 @@ export default function ObservationsPage() {
                   <div
                     key={alert._id}
                     style={{
-                      background: 'rgba(0, 0, 0, 0.35)',
+                      background: 'var(--card-bg)',
                       border: '1px solid var(--border-color)',
                       borderRadius: '6px',
                       padding: '18px',
@@ -297,15 +298,18 @@ export default function ObservationsPage() {
                       flexDirection: 'column',
                       gap: '12px',
                       transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: 'var(--shadow-sm)',
                       position: 'relative'
                     }}
                     onMouseOver={(e) => {
-                      e.currentTarget.style.borderColor = 'var(--accent-blue)';
-                      e.currentTarget.style.boxShadow = '0 4px 16px rgba(14, 165, 233, 0.15)';
+                      e.currentTarget.style.borderColor = 'var(--border-highlight)';
+                      e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
                     }}
                     onMouseOut={(e) => {
                       e.currentTarget.style.borderColor = 'var(--border-color)';
-                      e.currentTarget.style.boxShadow = 'none';
+                      e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                      e.currentTarget.style.transform = 'translateY(0)';
                     }}
                   >
                     {/* Header: Alert Type & Timestamp */}
@@ -453,7 +457,7 @@ export default function ObservationsPage() {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', textAlign: 'left' }}>
+                <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--table-header-bg)', color: 'var(--text-muted)', textAlign: 'left' }}>
                   <th style={{ padding: '10px 12px', fontWeight: 600 }}>INCIDENT</th>
                   <th style={{ padding: '10px 12px', fontWeight: 600 }}>OVERPASS TIME</th>
                   <th style={{ padding: '10px 12px', fontWeight: 600 }}>COORDINATES</th>
@@ -470,11 +474,11 @@ export default function ObservationsPage() {
                   return (
                     <tr 
                       key={investigationId}
-                      style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.2s' }}
-                      onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+                      style={{ borderBottom: '1px solid var(--border-subtle)', transition: 'background 0.2s' }}
+                      onMouseOver={(e) => (e.currentTarget.style.background = 'var(--table-row-hover)')}
                       onMouseOut={(e) => (e.currentTarget.style.background = 'transparent')}
                     >
-                      <td style={{ padding: '12px', fontFamily: 'monospace', fontWeight: 600, color: '#f8fafc' }}>
+                      <td style={{ padding: '12px', fontFamily: 'monospace', fontWeight: 600, color: 'var(--text-primary)' }}>
                         {spill.name || `INCIDENT-${investigationId.substring(0, 6).toUpperCase()}`}
                       </td>
                       <td style={{ padding: '12px', color: 'var(--text-secondary)' }}>
@@ -505,7 +509,7 @@ export default function ObservationsPage() {
                             href={`/observations/${investigationId}`}
                             style={{
                               padding: '6px 12px',
-                              background: 'rgba(255, 255, 255, 0.05)',
+                              background: 'var(--table-row-alt)',
                               border: '1px solid var(--border-color)',
                               borderRadius: '4px',
                               color: 'var(--text-primary)',

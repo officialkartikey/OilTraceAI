@@ -21,12 +21,32 @@ export default function AlertsPage() {
           <h1 style={{ fontSize: '24px', fontWeight: 600, letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '12px' }}>
             <Bell size={24} /> System Alerts
           </h1>
-          <button style={{ padding: '8px 16px', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-primary)', borderRadius: '4px', cursor: 'pointer' }}>
+          <button 
+            style={{ 
+              padding: '8px 16px', 
+              background: 'var(--card-bg)', 
+              border: '1px solid var(--border-color)', 
+              color: 'var(--text-primary)', 
+              borderRadius: '4px', 
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.borderColor = 'var(--accent-cyan)';
+              e.currentTarget.style.color = 'var(--accent-cyan)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.borderColor = 'var(--border-color)';
+              e.currentTarget.style.color = 'var(--text-primary)';
+            }}
+          >
             Mark All as Read
           </button>
         </div>
 
-        <div className="tactical-panel" style={{ flex: 1, overflowY: 'auto' }}>
+        <div className="tactical-panel" style={{ flex: 1, overflowY: 'auto', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
           {alerts.map(alert => {
             const isCritical = alert.type === 'CRITICAL';
             const isHigh = alert.type === 'HIGH';
@@ -40,7 +60,8 @@ export default function AlertsPage() {
               <div key={alert.id} style={{ 
                 padding: '24px', borderBottom: '1px solid var(--border-color)',
                 display: 'flex', gap: '16px', opacity: alert.read ? 0.6 : 1,
-                background: alert.read ? 'transparent' : 'rgba(255,255,255,0.02)'
+                background: alert.read ? 'transparent' : 'var(--table-row-alt)',
+                transition: 'background 0.2s'
               }}>
                 <div style={{ 
                   width: '40px', height: '40px', borderRadius: '8px', 

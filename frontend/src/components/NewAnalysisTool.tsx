@@ -149,7 +149,7 @@ export default function NewAnalysisTool() {
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Latitude</label>
-            <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '8px', transition: 'border-color 0.2s' }}>
+            <div style={{ display: 'flex', alignItems: 'center', background: 'var(--input-bg)', border: '1px solid var(--input-border)', borderRadius: '4px', padding: '8px', transition: 'border-color 0.2s' }}>
               <MapPin size={14} color="var(--text-secondary)" style={{ marginRight: '8px' }} />
               <input 
                 type="number" step="any"
@@ -164,7 +164,7 @@ export default function NewAnalysisTool() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Longitude</label>
-            <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '8px', transition: 'border-color 0.2s' }}>
+            <div style={{ display: 'flex', alignItems: 'center', background: 'var(--input-bg)', border: '1px solid var(--input-border)', borderRadius: '4px', padding: '8px', transition: 'border-color 0.2s' }}>
               <MapPin size={14} color="var(--text-secondary)" style={{ marginRight: '8px' }} />
               <input 
                 type="number" step="any"
@@ -179,14 +179,14 @@ export default function NewAnalysisTool() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Date & Time (UTC)</label>
-            <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '8px', transition: 'border-color 0.2s' }}>
+            <div style={{ display: 'flex', alignItems: 'center', background: 'var(--input-bg)', border: '1px solid var(--input-border)', borderRadius: '4px', padding: '8px', transition: 'border-color 0.2s' }}>
               <Calendar size={14} color="var(--text-secondary)" style={{ marginRight: '8px' }} />
               <input 
                 type="datetime-local" 
                 required 
                 value={timeInput}
                 onChange={(e) => setTimeInput(e.target.value)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', fontSize: '12px', width: '100%', outline: 'none' }} 
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', fontSize: '12px', width: '100%', outline: 'none', colorScheme: 'dark light' }} 
               />
             </div>
           </div>
@@ -198,12 +198,12 @@ export default function NewAnalysisTool() {
           <select 
             value={sourceInput}
             onChange={(e) => setSourceInput(e.target.value)}
-            style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '8px', color: 'var(--text-primary)', fontSize: '12px', outline: 'none', cursor: 'pointer' }}
+            style={{ background: 'var(--input-bg)', border: '1px solid var(--input-border)', borderRadius: '4px', padding: '8px', color: 'var(--text-primary)', fontSize: '12px', outline: 'none', cursor: 'pointer' }}
           >
-            <option value="sentinel-1">Sentinel-1 (Copernicus)</option>
-            <option value="radarsat-2">RADARSAT-2</option>
-            <option value="terrasar-x">TerraSAR-X</option>
-            <option value="capella">Capella Space</option>
+            <option value="sentinel-1" style={{ background: 'var(--bg-panel)', color: 'var(--text-primary)' }}>Sentinel-1 (Copernicus)</option>
+            <option value="radarsat-2" style={{ background: 'var(--bg-panel)', color: 'var(--text-primary)' }}>RADARSAT-2</option>
+            <option value="terrasar-x" style={{ background: 'var(--bg-panel)', color: 'var(--text-primary)' }}>TerraSAR-X</option>
+            <option value="capella" style={{ background: 'var(--bg-panel)', color: 'var(--text-primary)' }}>Capella Space</option>
           </select>
         </div>
 

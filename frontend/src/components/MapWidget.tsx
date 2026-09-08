@@ -5,24 +5,13 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { useInvestigation } from '@/context/InvestigationContext';
 import { Radio, Wind, Compass, Layers } from 'lucide-react';
+import { processVesselTrajectory, CleanedVesselTrack, haversineDistKm } from '@/lib/trajectory';
 
 interface MapWidgetProps {
   activeAlert?: any;
   className?: string;
   showVesselTracks?: boolean;
   [key: string]: any;
-}
-
-// Haversine distance in kilometers
-function haversineDistKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * (Math.PI / 180);
-  const dLon = (lon2 - lon1) * (Math.PI / 180);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
 }
 
 // Recursively extract all [lon, lat] pairs from any GeoJSON geometry
@@ -201,25 +190,29 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
     return data?.candidates || [];
   }, [data]);
 
-  const topCandidate = candidates.length > 0 ? candidates[0] : null;
-  const activeCandidate = candidates.find(c => {
-    const v = c?.vessel || c;
-    return (v?.vessel_id || c?.vessel_id) === selectedVessel;
-  }) || topCandidate;
+  // Reference center for trajectory correlation (Source Origin preferred, then Slick Center)
+  const referenceCenter = useMemo((): [number, number] => {
+    return sourceCenter || slickCenter;
+  }, [sourceCenter, slickCenter]);
 
-  console.log("[MAP] candidates for vessel tracks:", candidates);
-  console.log("[MAP] active vessel:", activeCandidate);
+  // Clean and process all candidate trajectories into single, continuous tracks
+  const cleanedTracks = useMemo((): CleanedVesselTrack[] => {
+    if (!showVesselTracks || candidates.length === 0) return [];
+    return candidates.map((cand, idx) =>
+      processVesselTrajectory(cand, referenceCenter, cand.rank || (idx + 1))
+    );
+  }, [candidates, showVesselTracks, referenceCenter]);
+
+  const activeTrack = useMemo(() => {
+    if (cleanedTracks.length === 0) return null;
+    return cleanedTracks.find(t => t.vesselId === selectedVessel) || cleanedTracks[0];
+  }, [cleanedTracks, selectedVessel]);
 
   // Selected vessel latest position for camera focus
   const selectedVesselPos = useMemo(() => {
-    if (!showVesselTracks || !activeCandidate) return null;
-    const v = activeCandidate.vessel || activeCandidate;
-    const positions = v?.positions || [];
-    if (positions.length === 0) return null;
-    const latest = positions[positions.length - 1];
-    if (!latest?.location?.coordinates || latest.location.coordinates.length < 2) return null;
-    return [latest.location.coordinates[1], latest.location.coordinates[0]] as [number, number];
-  }, [showVesselTracks, activeCandidate]);
+    if (!showVesselTracks || !activeTrack) return null;
+    return activeTrack.latestLatLng;
+  }, [showVesselTracks, activeTrack]);
 
   // Concentric Tactical Radar Ring Radii (Meters)
   const radarRadiiMeters = [2000, 5000, 10000];
@@ -297,14 +290,8 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
     if (sourceCenter) points.push(sourceCenter);
     hindcastTrack.forEach(p => points.push(p));
     if (showVesselTracks) {
-      candidates.forEach(cand => {
-        const v = cand?.vessel || cand;
-        const positions = v?.positions || [];
-        positions.forEach((pos: any) => {
-          if (pos?.location?.coordinates && pos.location.coordinates.length >= 2) {
-            points.push([pos.location.coordinates[1], pos.location.coordinates[0]]);
-          }
-        });
+      cleanedTracks.forEach(track => {
+        track.latLngs.forEach(pt => points.push(pt));
       });
     }
 
@@ -316,7 +303,7 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
       }
     }
     return undefined;
-  }, [slickCenter, sourceCenter, hindcastTrack, candidates, showVesselTracks]);
+  }, [slickCenter, sourceCenter, hindcastTrack, cleanedTracks, showVesselTracks]);
 
   if (!mounted) {
     return (
@@ -378,10 +365,10 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
                   key={`slick-ring-${i}`}
                   positions={ring}
                   pathOptions={{
-                    color: '#eab308',
-                    fillColor: '#ca8a04',
+                    color: '#f59e0b',
+                    fillColor: '#d97706',
                     fillOpacity: 0.45,
-                    weight: 2
+                    weight: 2.5
                   }}
                 />
               ))
@@ -390,10 +377,10 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
                 center={slickCenter}
                 radius={Math.sqrt((slickAreaKm2 * 1000000) / Math.PI)}
                 pathOptions={{
-                  color: '#eab308',
-                  fillColor: '#ca8a04',
+                  color: '#f59e0b',
+                  fillColor: '#d97706',
                   fillOpacity: 0.45,
-                  weight: 2,
+                  weight: 2.5,
                   dashArray: '4, 4'
                 }}
               />
@@ -425,11 +412,11 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
                 key={`source-ring-${idx}`}
                 positions={ring}
                 pathOptions={{
-                  color: '#ef4444',
-                  fillColor: '#ef4444',
-                  fillOpacity: 0.2,
-                  weight: 1.5,
-                  dashArray: '3, 6'
+                  color: '#dc2626',
+                  fillColor: '#dc2626',
+                  fillOpacity: 0.25,
+                  weight: 2,
+                  dashArray: '4, 6'
                 }}
               />
             ))}
@@ -440,8 +427,8 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
                   new L.DivIcon({
                     className: 'source-origin-tag',
                     html: `
-                      <div style="background: rgba(239, 68, 68, 0.2); border: 1px dashed #ef4444; color: #f87171; font-family: monospace; font-size: 10px; padding: 2px 6px; border-radius: 3px; white-space: nowrap; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 4px;">
-                        <span style="display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: #ef4444;"></span>
+                      <div style="background: rgba(220, 38, 38, 0.9); border: 1.5px dashed #ffffff; color: #ffffff; font-family: monospace; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; white-space: nowrap; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 5px; box-shadow: 0 2px 8px rgba(0,0,0,0.5); text-shadow: 0 1px 2px rgba(0,0,0,0.8);">
+                        <span style="display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #ffffff;"></span>
                         ESTIMATED RELEASE ORIGIN
                       </div>
                     `,
@@ -459,9 +446,9 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
             <Polyline
               positions={hindcastTrack}
               pathOptions={{
-                color: '#38bdf8',
-                weight: 2.5,
-                opacity: 0.9,
+                color: '#00D2D3',
+                weight: 3,
+                opacity: 0.95,
                 dashArray: '6, 6'
               }}
             />
@@ -474,10 +461,10 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
                   center={pt}
                   radius={120}
                   pathOptions={{
-                    color: '#0284c7',
-                    fillColor: '#38bdf8',
-                    fillOpacity: 0.85,
-                    weight: 1
+                    color: '#0369a1',
+                    fillColor: '#00D2D3',
+                    fillOpacity: 0.9,
+                    weight: 1.5
                   }}
                 />
               );
@@ -487,66 +474,39 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
 
         {/* 5. LAYER 2: Vessel Backtracking on Map (Requirement 10 & 11) */}
         {mapLayers.showTracks && showVesselTracks &&
-          candidates.map((cand, candIdx) => {
-            const vessel = cand?.vessel || cand;
-            const vesselId = vessel?.vessel_id || cand?.vessel_id || `vessel-${candIdx}`;
-            const isSelected = vesselId === selectedVessel;
-            const isTopRank = cand.rank === 1 || candIdx === 0;
-            const positions = vessel?.positions || cand?.positions || [];
-            if (positions.length === 0) return null;
-
-            // Sort positions chronologically
-            const sorted = [...positions].sort(
-              (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-            );
-
-            const latLngs = sorted
-              .filter(p => p?.location?.coordinates && p.location.coordinates.length >= 2)
-              .map(p => [p.location.coordinates[1], p.location.coordinates[0]] as [number, number]);
-
-            if (latLngs.length === 0) return null;
-
-            const latestPos = sorted[sorted.length - 1];
-            const latestLatLng: [number, number] = [
-              latestPos.location.coordinates[1],
-              latestPos.location.coordinates[0]
-            ];
-            const heading = latestPos.heading || latestPos.course || 0;
-            const distToSpillKm = haversineDistKm(
-              latestLatLng[0],
-              latestLatLng[1],
-              slickCenter[0],
-              slickCenter[1]
-            );
-            const vesselName = vessel?.name || cand.name || 'Unknown Vessel';
-            const vesselScore = cand.attribution_score ?? cand.score ?? 0;
+          cleanedTracks.map((track) => {
+            const isSelected = track.vesselId === selectedVessel;
+            const isTopRank = track.rank === 1;
+            if (track.latLngs.length === 0 || !track.latestLatLng) return null;
 
             return (
-              <React.Fragment key={`vessel-${vesselId}`}>
-                {/* Connected dotted/dashed backtracking trajectory line */}
+              <React.Fragment key={`vessel-track-${track.vesselId}`}>
+                {/* Connected dotted/dashed backtracking trajectory line - EXACTLY ONE per vessel */}
                 <Polyline
-                  positions={latLngs}
+                  positions={track.latLngs}
                   pathOptions={{
-                    color: isSelected ? '#f97316' : (isTopRank ? '#eab308' : '#38bdf8'),
-                    weight: isSelected ? 3.5 : 2,
-                    dashArray: isSelected ? '6, 6' : '4, 6',
-                    opacity: isSelected ? 1.0 : 0.75
+                    color: isSelected ? '#ea580c' : (isTopRank ? '#0284c7' : '#38bdf8'),
+                    weight: isSelected ? 4 : 2.5,
+                    dashArray: isSelected ? '7, 5' : '5, 5',
+                    opacity: isSelected ? 1.0 : 0.8
                   }}
                 />
 
-                {/* Trajectory waypoint breadcrumb dots */}
-                {sorted.map((pos, pIdx) => {
-                  if (pIdx % 6 !== 0 && pIdx !== sorted.length - 1) return null;
+                {/* Trajectory waypoint breadcrumb dots along the clean path */}
+                {track.cleanedPositions.map((pos, pIdx) => {
+                  if (pIdx % 4 !== 0 && pIdx !== track.cleanedPositions.length - 1) return null;
+                  const coords = track.latLngs[pIdx];
+                  if (!coords) return null;
                   return (
                     <Circle
-                      key={`waypoint-${vesselId}-${pIdx}`}
-                      center={[pos.location.coordinates[1], pos.location.coordinates[0]]}
-                      radius={isSelected ? 60 : 35}
+                      key={`waypoint-${track.vesselId}-${pIdx}`}
+                      center={coords}
+                      radius={isSelected ? 65 : 35}
                       pathOptions={{
-                        color: isSelected ? '#ea580c' : '#0284c7',
-                        fillColor: isSelected ? '#f97316' : '#38bdf8',
-                        fillOpacity: 0.9,
-                        weight: 1
+                        color: isSelected ? '#c2410c' : '#0284c7',
+                        fillColor: isSelected ? '#ea580c' : '#38bdf8',
+                        fillOpacity: 0.95,
+                        weight: 1.5
                       }}
                     />
                   );
@@ -554,33 +514,33 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
 
                 {/* Vessel Marker at latest/relevant position */}
                 <Marker
-                  position={latestLatLng}
-                  icon={createShipIcon(heading, isSelected, isTopRank, cand.rank || (candIdx + 1))}
+                  position={track.latestLatLng}
+                  icon={createShipIcon(track.heading, isSelected, isTopRank, track.rank)}
                   zIndexOffset={isSelected ? 1000 : (isTopRank ? 500 : 100)}
                   eventHandlers={{
-                    click: () => setSelectedVessel(vesselId)
+                    click: () => setSelectedVessel(track.vesselId)
                   }}
                 >
                   <Popup>
                     <div style={{ color: '#0f172a', fontSize: '12px', minWidth: '190px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                         <span style={{ fontWeight: 700, color: isSelected ? '#c2410c' : '#0284c7', textTransform: 'uppercase' }}>
-                          Rank #{cand.rank || (candIdx + 1)}
+                          Rank #{track.rank}
                         </span>
                         <span style={{ background: 'rgba(249, 115, 22, 0.15)', color: '#c2410c', padding: '1px 5px', borderRadius: '3px', fontWeight: 700 }}>
-                          {(vesselScore * 100).toFixed(0)}% Match
+                          {(track.score * 100).toFixed(0)}% Match
                         </span>
                       </div>
                       <div style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a' }}>
-                        {vesselName}
+                        {track.vesselName}
                       </div>
                       <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '3px', fontSize: '11px' }}>
-                        <div>MMSI: <strong>{vessel?.mmsi || cand.mmsi || 'N/A'}</strong></div>
-                        <div>Type: <strong>{vessel?.vessel_type || cand.vessel_type || 'N/A'}</strong></div>
-                        <div>Speed: <strong>{latestPos.speed !== undefined ? `${latestPos.speed.toFixed(1)} kn` : 'N/A'}</strong></div>
-                        <div>Heading: <strong>{heading ? `${heading.toFixed(0)}°` : 'N/A'}</strong></div>
-                        <div>Coords: <strong>{latestLatLng[0].toFixed(4)}°N, {latestLatLng[1].toFixed(4)}°E</strong></div>
-                        <div>Dist to Spill: <strong>{distToSpillKm.toFixed(2)} km</strong></div>
+                        <div>MMSI: <strong>{track.mmsi}</strong></div>
+                        <div>Type: <strong>{track.vesselType}</strong></div>
+                        <div>Speed: <strong>{track.speed !== undefined ? `${track.speed.toFixed(1)} kn` : 'N/A'}</strong></div>
+                        <div>Heading: <strong>{track.heading ? `${track.heading.toFixed(0)}°` : 'N/A'}</strong></div>
+                        <div>Coords: <strong>{track.latestLatLng[0].toFixed(4)}°N, {track.latestLatLng[1].toFixed(4)}°E</strong></div>
+                        <div>Dist to Spill: <strong>{track.distToRefKm.toFixed(2)} km</strong></div>
                       </div>
                     </div>
                   </Popup>
@@ -589,8 +549,8 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
                 {/* Callout Tooltip pinned over Selected or Top Suspect Vessel */}
                 {(isSelected || (isTopRank && !selectedVessel)) && (
                   <Marker
-                    position={latestLatLng}
-                    icon={createAttributionCalloutIcon(vesselName, vesselScore, cand.rank || (candIdx + 1))}
+                    position={track.latestLatLng}
+                    icon={createAttributionCalloutIcon(track.vesselName, track.score, track.rank)}
                     zIndexOffset={1100}
                   />
                 )}
@@ -620,27 +580,29 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
             bottom: '24px',
             left: '24px',
             zIndex: 1000,
-            background: 'rgba(15, 23, 42, 0.94)',
-            backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
+            background: 'var(--hud-bg)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            border: '1px solid var(--hud-border)',
             borderRadius: '6px',
             padding: '12px 16px',
             display: 'flex',
             flexDirection: 'column',
             gap: '8px',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
+            boxShadow: 'var(--shadow-tactical)',
             fontSize: '11px',
-            minWidth: '210px'
+            minWidth: '220px'
           }}
         >
           <div
             style={{
               fontWeight: 700,
-              color: '#f8fafc',
+              color: 'var(--hud-text-title)',
               textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-              borderBottom: '1px solid rgba(255,255,255,0.08)',
-              paddingBottom: '4px'
+              letterSpacing: '0.8px',
+              borderBottom: '1px solid var(--hud-border)',
+              paddingBottom: '5px',
+              fontSize: '10px'
             }}
           >
             GIS Map Legend
@@ -652,12 +614,12 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
                 style={{
                   width: '14px',
                   height: '14px',
-                  background: 'rgba(234, 179, 8, 0.45)',
-                  border: '2px solid #eab308',
+                  background: 'rgba(245, 158, 11, 0.45)',
+                  border: '2px solid #f59e0b',
                   borderRadius: '3px'
                 }}
               />
-              <span style={{ color: '#f1f5f9' }}>Oil Spill</span>
+              <span style={{ color: 'var(--hud-text-value)' }}>Oil Spill Extent</span>
             </div>
             {/* Estimated Release Origin */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -665,17 +627,17 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
                 style={{
                   width: '14px',
                   height: '14px',
-                  background: 'rgba(239, 68, 68, 0.25)',
-                  border: '1.5px dashed #ef4444',
+                  background: 'rgba(220, 38, 38, 0.25)',
+                  border: '1.5px dashed #dc2626',
                   borderRadius: '3px'
                 }}
               />
-              <span style={{ color: '#f1f5f9' }}>Estimated Release Origin</span>
+              <span style={{ color: 'var(--hud-text-value)' }}>Estimated Release Origin</span>
             </div>
             {/* Oil Backtracking */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ width: '18px', height: '0px', borderTop: '2.5px dashed #38bdf8' }} />
-              <span style={{ color: '#f1f5f9' }}>Oil Backtracking</span>
+              <div style={{ width: '18px', height: '0px', borderTop: '2.5px dashed #00D2D3' }} />
+              <span style={{ color: 'var(--hud-text-value)' }}>Oil Drift Backtracking</span>
             </div>
             {/* Vessel Layers (only when vessel tracks are enabled) */}
             {showVesselTracks && (
@@ -686,7 +648,7 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
                       width: '14px',
                       height: '14px',
                       borderRadius: '50%',
-                      background: '#38bdf8',
+                      background: '#0284c7',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center'
@@ -698,19 +660,19 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
                         height: '0',
                         borderLeft: '3px solid transparent',
                         borderRight: '3px solid transparent',
-                        borderBottom: '6px solid #000'
+                        borderBottom: '6px solid #ffffff'
                       }}
                     />
                   </div>
-                  <span style={{ color: '#f1f5f9' }}>Vessel</span>
+                  <span style={{ color: 'var(--hud-text-value)' }}>Vessel Position</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '18px', height: '0px', borderTop: '2px dashed #60a5fa' }} />
-                  <span style={{ color: '#f1f5f9' }}>Vessel Track / Backtracking</span>
+                  <div style={{ width: '18px', height: '0px', borderTop: '2.5px dashed #0284c7' }} />
+                  <span style={{ color: 'var(--hud-text-value)' }}>Vessel AIS Backtrack</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '18px', height: '0px', borderTop: '3.5px dashed #f97316' }} />
-                  <span style={{ color: '#f97316', fontWeight: 600 }}>Selected Vessel</span>
+                  <div style={{ width: '18px', height: '0px', borderTop: '3.5px dashed #ea580c' }} />
+                  <span style={{ color: 'var(--accent-orange)', fontWeight: 700 }}>Selected Culprit Track</span>
                 </div>
               </>
             )}
@@ -725,54 +687,55 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
           top: '16px',
           left: '16px',
           zIndex: 1000,
-          background: 'rgba(15, 23, 42, 0.92)',
-          backdropFilter: 'blur(8px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          background: 'var(--hud-bg)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          border: '1px solid var(--hud-border)',
           borderRadius: '6px',
           padding: '12px 16px',
           display: 'flex',
           flexDirection: 'column',
           gap: '8px',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
+          boxShadow: 'var(--shadow-tactical)',
           fontSize: '11px',
           minWidth: '220px'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '6px' }}>
-          <Radio size={14} color="#38bdf8" />
-          <span style={{ fontWeight: 700, color: '#f8fafc', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            TACTICAL TELEMETRY
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--hud-border)', paddingBottom: '6px' }}>
+          <Radio size={14} color="var(--accent-blue)" />
+          <span style={{ fontWeight: 700, color: 'var(--hud-text-title)', textTransform: 'uppercase', letterSpacing: '0.8px', fontSize: '10px' }}>
+            Tactical Telemetry
           </span>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
           <div>
-            <div style={{ fontSize: '9px', color: '#94a3b8' }}>SPILL LOCATION</div>
-            <div style={{ color: '#f1f5f9', fontFamily: 'monospace' }}>
+            <div style={{ fontSize: '9px', color: 'var(--hud-text-label)', textTransform: 'uppercase', fontWeight: 600 }}>SPILL LOCATION</div>
+            <div style={{ color: 'var(--hud-text-value)', fontFamily: 'monospace', fontSize: '11px', fontWeight: 600 }}>
               {slickCenter[0].toFixed(2)}°N, {slickCenter[1].toFixed(2)}°E
             </div>
           </div>
           <div>
-            <div style={{ fontSize: '9px', color: '#94a3b8' }}>SLICK EXTENT</div>
-            <div style={{ color: '#eab308', fontFamily: 'monospace' }}>
+            <div style={{ fontSize: '9px', color: 'var(--hud-text-label)', textTransform: 'uppercase', fontWeight: 600 }}>SLICK EXTENT</div>
+            <div style={{ color: 'var(--accent-yellow)', fontFamily: 'monospace', fontSize: '11px', fontWeight: 700 }}>
               {slickAreaKm2.toFixed(1)} km² ({slickConfidence}%)
             </div>
           </div>
         </div>
 
-        {showVesselTracks && activeCandidate && (
-          <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        {showVesselTracks && activeTrack && (
+          <div style={{ borderTop: '1px solid var(--hud-border)', paddingTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#94a3b8' }}>TARGET VESSEL:</span>
-              <span style={{ color: '#f97316', fontWeight: 600 }}>{activeCandidate.vessel.name || 'UNKNOWN'}</span>
+              <span style={{ color: 'var(--hud-text-label)' }}>TARGET VESSEL:</span>
+              <span style={{ color: 'var(--accent-orange)', fontWeight: 700 }}>{activeTrack.vesselName}</span>
             </div>
-            {activeCandidate.vessel.positions && activeCandidate.vessel.positions.length > 0 && (
+            {activeTrack.latestLatLng && (
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#94a3b8' }}>DIST TO SPILL:</span>
-                <span style={{ color: '#f8fafc', fontFamily: 'monospace' }}>
+                <span style={{ color: 'var(--hud-text-label)' }}>DIST TO SPILL:</span>
+                <span style={{ color: 'var(--hud-text-value)', fontFamily: 'monospace', fontWeight: 600 }}>
                   {haversineDistKm(
-                    activeCandidate.vessel.positions[activeCandidate.vessel.positions.length - 1].location.coordinates[1],
-                    activeCandidate.vessel.positions[activeCandidate.vessel.positions.length - 1].location.coordinates[0],
+                    activeTrack.latestLatLng[0],
+                    activeTrack.latestLatLng[1],
                     slickCenter[0],
                     slickCenter[1]
                   ).toFixed(2)} km
@@ -783,12 +746,12 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
         )}
 
         {data?.environment && (
-          <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '6px', display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
-            <span style={{ color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Wind size={12} color="#38bdf8" /> Wind: {data.environment.wind_speed_kn}kn
+          <div style={{ borderTop: '1px solid var(--hud-border)', paddingTop: '6px', display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
+            <span style={{ color: 'var(--hud-text-label)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Wind size={12} color="var(--accent-blue)" /> Wind: {data.environment.wind_speed_kn}kn
             </span>
-            <span style={{ color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Compass size={12} color="#38bdf8" /> Current: {data.environment.current_speed_kn}kn
+            <span style={{ color: 'var(--hud-text-label)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Compass size={12} color="var(--accent-blue)" /> Current: {data.environment.current_speed_kn}kn
             </span>
           </div>
         )}
@@ -805,19 +768,19 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
           width: '84px',
           height: '84px',
           borderRadius: '50%',
-          border: '1px solid rgba(56, 189, 248, 0.4)',
-          background: 'rgba(2, 6, 23, 0.75)',
+          border: '1px solid rgba(14, 165, 233, 0.4)',
+          background: 'var(--bg-panel-translucent)',
           overflow: 'hidden',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: '0 0 15px rgba(14, 165, 233, 0.2)'
+          boxShadow: 'var(--shadow-tactical)'
         }}
       >
-        <div style={{ position: 'absolute', inset: '10px', border: '1px solid rgba(56, 189, 248, 0.2)', borderRadius: '50%' }} />
-        <div style={{ position: 'absolute', inset: '24px', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '50%' }} />
-        <div style={{ position: 'absolute', width: '100%', height: '1px', background: 'rgba(56, 189, 248, 0.25)' }} />
-        <div style={{ position: 'absolute', height: '100%', width: '1px', background: 'rgba(56, 189, 248, 0.25)' }} />
+        <div style={{ position: 'absolute', inset: '10px', border: '1px solid rgba(14, 165, 233, 0.2)', borderRadius: '50%' }} />
+        <div style={{ position: 'absolute', inset: '24px', border: '1px solid rgba(14, 165, 233, 0.3)', borderRadius: '50%' }} />
+        <div style={{ position: 'absolute', width: '100%', height: '1px', background: 'rgba(14, 165, 233, 0.25)' }} />
+        <div style={{ position: 'absolute', height: '100%', width: '1px', background: 'rgba(14, 165, 233, 0.25)' }} />
         <div
           style={{
             position: 'absolute',
@@ -826,11 +789,11 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
             top: 0,
             right: 0,
             transformOrigin: 'bottom left',
-            background: 'conic-gradient(from 0deg, rgba(56, 189, 248, 0.6) 0deg, transparent 60deg)',
+            background: 'conic-gradient(from 0deg, rgba(14, 165, 233, 0.5) 0deg, transparent 60deg)',
             animation: 'radar-sweep 4s linear infinite'
           }}
         />
-        <span style={{ fontSize: '8px', color: '#38bdf8', fontFamily: 'monospace', zIndex: 2 }}>AIS SCAN</span>
+        <span style={{ fontSize: '8px', color: 'var(--accent-cyan)', fontFamily: 'monospace', fontWeight: 700, zIndex: 2 }}>AIS SCAN</span>
       </div>
 
       {/* FLOATING GIS LAYERS TOGGLE */}
@@ -841,22 +804,24 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
               position: 'absolute',
               top: '40px',
               right: '0',
-              background: 'rgba(15, 23, 42, 0.95)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
+              background: 'var(--bg-panel-translucent)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              border: '1px solid var(--border-color)',
               borderRadius: '6px',
               padding: '12px 16px',
               display: 'flex',
               flexDirection: 'column',
               gap: '8px',
               minWidth: '180px',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
+              boxShadow: 'var(--shadow-tactical)',
               fontSize: '11px'
             }}
           >
-            <div style={{ fontWeight: 700, color: '#f8fafc', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>
+            <div style={{ fontWeight: 700, color: 'var(--text-primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }}>
               Map Layers
             </div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 checked={mapLayers.showSlick}
@@ -864,7 +829,7 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
               />
               Oil Spill Slick
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 checked={mapLayers.showSourceRegion}
@@ -872,7 +837,7 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
               />
               Estimated Origin
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 checked={mapLayers.showHindcast}
@@ -880,7 +845,7 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
               />
               Oil Backtracking
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 checked={mapLayers.showTracks}
@@ -888,7 +853,7 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
               />
               Vessel Backtracking
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 checked={mapLayers.showRadarRings}
@@ -896,7 +861,7 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
               />
               Range Rings
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 checked={mapLayers.showLegend}
@@ -910,21 +875,29 @@ export default function MapWidget({ activeAlert, showVesselTracks = true }: MapW
         <button
           onClick={() => setShowLayerMenu(!showLayerMenu)}
           style={{
-            background: 'rgba(15, 23, 42, 0.9)',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            color: '#f8fafc',
+            background: 'var(--bg-panel-translucent)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid var(--border-color)',
+            color: 'var(--text-primary)',
             borderRadius: '6px',
-            padding: '8px 12px',
+            padding: '8px 14px',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
             fontSize: '11px',
             fontWeight: 600,
             cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
+            boxShadow: 'var(--shadow-tactical)',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.borderColor = 'var(--border-highlight)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.borderColor = 'var(--border-color)';
           }}
         >
-          <Layers size={14} color="#38bdf8" />
+          <Layers size={14} color="var(--accent-blue)" />
           {showLayerMenu ? 'Close Layers' : 'GIS Layers'}
         </button>
       </div>

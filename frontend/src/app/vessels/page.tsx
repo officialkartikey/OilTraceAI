@@ -18,6 +18,7 @@ import {
 import { InvestigationProvider, useInvestigation } from '@/context/InvestigationContext';
 import CandidateVesselsList from '@/components/CandidateVesselsList';
 import { kairosClient } from '@/lib/api/kairosClient';
+import ThemeToggle from '@/components/ThemeToggle';
 
 const MapWidget = dynamic(() => import('@/components/MapWidget'), { ssr: false });
 
@@ -101,12 +102,15 @@ function VesselsWorkstation({ investigationId }: { investigationId: string }) {
       <header style={{ 
         height: '64px', 
         minHeight: '64px',
-        borderBottom: '1px solid var(--border-color)', 
-        background: 'var(--bg-sidebar)',
+        borderBottom: '1px solid var(--header-border)', 
+        background: 'var(--header-bg)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'space-between',
         padding: '0 24px',
+        boxShadow: 'var(--shadow-tactical)',
         zIndex: 10
       }}>
         {/* Left: Back Button & Breadcrumbs */}
@@ -115,9 +119,9 @@ function VesselsWorkstation({ investigationId }: { investigationId: string }) {
             onClick={() => router.push(`/investigations/${investigationId}`)}
             style={{
               padding: '8px 14px',
-              background: 'rgba(255, 255, 255, 0.05)',
+              background: 'var(--button-ghost-hover)',
               border: '1px solid var(--border-color)',
-              borderRadius: '4px',
+              borderRadius: '6px',
               color: 'var(--accent-cyan)',
               fontSize: '11px',
               fontWeight: 700,
@@ -126,10 +130,10 @@ function VesselsWorkstation({ investigationId }: { investigationId: string }) {
               gap: '8px',
               cursor: 'pointer',
               letterSpacing: '0.5px',
-              transition: 'background 0.2s'
+              transition: 'all 0.2s ease'
             }}
-            onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(56, 189, 248, 0.15)')}
-            onMouseOut={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)')}
+            onMouseOver={(e) => { e.currentTarget.style.borderColor = 'var(--border-highlight)' }}
+            onMouseOut={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)' }}
           >
             <ArrowLeft size={14} />
             BACK TO INVESTIGATION
@@ -138,7 +142,7 @@ function VesselsWorkstation({ investigationId }: { investigationId: string }) {
           <div style={{ width: '1px', height: '24px', background: 'var(--border-color)' }} />
 
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '1px', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '1px', textTransform: 'uppercase' }}>
               Maritime Tracking & Attribution Workstation
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
@@ -146,7 +150,7 @@ function VesselsWorkstation({ investigationId }: { investigationId: string }) {
                 Culprit Vessels & AIS Tracks
               </span>
               <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>/</span>
-              <span style={{ fontSize: '13px', color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+              <span style={{ fontSize: '13px', color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
                 #{data.investigation._id.substring(0, 12).toUpperCase()}
               </span>
             </div>
@@ -156,15 +160,16 @@ function VesselsWorkstation({ investigationId }: { investigationId: string }) {
           <div style={{ 
             marginLeft: '8px', 
             padding: '4px 10px', 
-            border: `1px solid ${isFailed ? 'var(--accent-red)' : 'var(--accent-green)'}`, 
+            border: `1px solid ${isFailed ? 'var(--accent-red)' : 'var(--badge-completed-border)'}`, 
             borderRadius: '20px', 
             fontSize: '10px', 
-            color: isFailed ? 'var(--accent-red)' : 'var(--accent-green)', 
+            color: isFailed ? 'var(--accent-red)' : 'var(--badge-completed-text)', 
             display: 'flex', 
             alignItems: 'center', 
             gap: '6px', 
-            fontWeight: 600, 
-            background: isFailed ? 'rgba(244,67,54,0.1)' : 'rgba(34,197,94,0.1)'
+            fontWeight: 700, 
+            background: isFailed ? 'rgba(239,68,68,0.12)' : 'var(--badge-completed-bg)',
+            fontFamily: 'var(--font-mono)'
           }}>
             <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'currentColor' }} />
             {isFailed ? 'FAILED' : invStatus}
@@ -176,12 +181,13 @@ function VesselsWorkstation({ investigationId }: { investigationId: string }) {
             borderRadius: '20px',
             fontSize: '10px',
             fontWeight: 700,
-            background: candidates.length > 0 ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-            border: `1px solid ${candidates.length > 0 ? '#38bdf8' : 'var(--border-color)'}`,
-            color: candidates.length > 0 ? '#38bdf8' : 'var(--text-muted)',
+            background: candidates.length > 0 ? 'var(--badge-culprit-bg)' : 'var(--button-ghost-hover)',
+            border: `1px solid ${candidates.length > 0 ? 'var(--badge-culprit-border)' : 'var(--border-color)'}`,
+            color: candidates.length > 0 ? 'var(--badge-culprit-text)' : 'var(--text-muted)',
             display: 'flex',
             alignItems: 'center',
-            gap: '6px'
+            gap: '6px',
+            fontFamily: 'var(--font-mono)'
           }}>
             <Ship size={12} />
             {candidates.length} CULPRIT VESSEL{candidates.length !== 1 ? 'S' : ''}
@@ -194,16 +200,25 @@ function VesselsWorkstation({ investigationId }: { investigationId: string }) {
             onClick={() => refresh()}
             style={{ 
               padding: '8px 14px', 
-              background: 'transparent', 
+              background: 'var(--card-bg)', 
               border: '1px solid var(--border-color)', 
               color: 'var(--text-primary)', 
-              borderRadius: '4px', 
+              borderRadius: '6px', 
               fontSize: '11px', 
               fontWeight: 600, 
               display: 'flex', 
               alignItems: 'center', 
               gap: '6px', 
-              cursor: 'pointer' 
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseOver={(e) => { 
+              e.currentTarget.style.borderColor = 'var(--border-highlight)';
+              e.currentTarget.style.color = 'var(--accent-blue)';
+            }}
+            onMouseOut={(e) => { 
+              e.currentTarget.style.borderColor = 'var(--border-color)';
+              e.currentTarget.style.color = 'var(--text-primary)';
             }}
           >
             <RefreshCw size={13} /> Refresh Data
@@ -220,17 +235,24 @@ function VesselsWorkstation({ investigationId }: { investigationId: string }) {
               background: 'var(--accent-cyan)', 
               border: 'none', 
               color: '#000', 
-              borderRadius: '4px', 
+              borderRadius: '6px', 
               fontSize: '11px', 
               fontWeight: 700, 
+              letterSpacing: '0.5px',
               display: 'flex', 
               alignItems: 'center', 
               gap: '8px', 
-              cursor: 'pointer' 
+              cursor: 'pointer',
+              boxShadow: 'var(--shadow-sm)',
+              transition: 'all 0.2s ease'
             }}
           >
             <Download size={14} /> EXPORT REPORT
           </button>
+
+          <div style={{ width: '1px', height: '20px', background: 'var(--border-color)', margin: '0 4px' }} />
+
+          <ThemeToggle size={16} />
         </div>
       </header>
 

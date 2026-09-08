@@ -11,6 +11,8 @@ import InvestigationPipeline from '@/components/InvestigationPipeline';
 import IntelligencePanel from '@/components/IntelligencePanel';
 import { kairosClient } from '@/lib/api/kairosClient';
 
+import ThemeToggle from '@/components/ThemeToggle';
+
 function InvestigationWorkspace() {
   const { 
     data, loading, error, refresh
@@ -23,7 +25,7 @@ function InvestigationWorkspace() {
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100%', background: 'var(--bg-base)' }}>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '16px' }}>
           <Loader2 size={32} className="animate-spin" color="var(--accent-cyan)" />
-          <div style={{ color: 'var(--text-muted)', fontSize: '12px', letterSpacing: '1px' }}>INITIALIZING WORKSTATION...</div>
+          <div style={{ color: 'var(--text-muted)', fontSize: '12px', letterSpacing: '1px', fontFamily: 'var(--font-mono)' }}>INITIALIZING WORKSTATION...</div>
         </div>
       </div>
     );
@@ -33,9 +35,9 @@ function InvestigationWorkspace() {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100%', background: 'var(--bg-base)' }}>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ color: 'var(--accent-red)', fontSize: '14px' }}>{error || 'Investigation not found'}</div>
-          <Link href="/investigations" style={{ color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
-             Back to Investigations
+          <div style={{ color: 'var(--accent-red)', fontSize: '14px', fontWeight: 600 }}>{error || 'Investigation not found'}</div>
+          <Link href="/investigations" style={{ color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 600 }}>
+             ← Back to Investigations
           </Link>
         </div>
       </div>
@@ -54,51 +56,58 @@ function InvestigationWorkspace() {
       {/* Header Bar */}
       <header style={{ 
         height: '64px', minHeight: '64px',
-        borderBottom: '1px solid var(--border-color)', 
-        background: 'var(--bg-sidebar)',
+        borderBottom: '1px solid var(--header-border)', 
+        background: 'var(--header-bg)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 24px'
+        padding: '0 24px',
+        boxShadow: 'var(--shadow-tactical)',
+        zIndex: 10
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <button 
             onClick={() => setIsPipelineOpen(!isPipelineOpen)}
             style={{
-              background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', padding: 0
+              background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '6px', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', transition: 'all 0.2s ease'
             }}
+            onMouseOver={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--border-highlight)' }}
+            onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.borderColor = 'var(--border-color)' }}
             title={isPipelineOpen ? "Hide Pipeline" : "Show Pipeline"}
           >
-            {isPipelineOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
+            {isPipelineOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
           </button>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '1px', textTransform: 'uppercase' }}>
-            Maritime Intelligence Station
+          <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '1px', textTransform: 'uppercase' }}>
+            Maritime Station
           </div>
-          <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)' }}>
+          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
             Investigation Workstation
           </div>
           <div style={{ fontSize: '14px', color: 'var(--text-muted)' }}>/</div>
-          <div style={{ fontSize: '14px', color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+          <div style={{ fontSize: '13px', color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
             {data.investigation._id.substring(0,12).toUpperCase()}
           </div>
           <div style={{ 
-            marginLeft: '16px', padding: '4px 12px', border: `1px solid ${isFailed ? 'var(--accent-red)' : 'var(--accent-green)'}`, 
+            marginLeft: '8px', padding: '3px 10px', border: `1px solid ${isFailed ? 'var(--accent-red)' : 'var(--accent-green)'}`, 
             borderRadius: '20px', fontSize: '10px', color: isFailed ? 'var(--accent-red)' : 'var(--accent-green)', 
-            display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, background: isFailed ? 'rgba(244,67,54,0.1)' : 'rgba(34,197,94,0.1)'
+            display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, background: isFailed ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)',
+            fontFamily: 'var(--font-mono)'
           }}>
             <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'currentColor' }}></div>
             {isFailed ? 'FAILED' : invStatus}
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {isFailed && (
             <button 
               onClick={async () => {
                 await kairosClient.triggerAnalysis(data.investigation._id);
                 refresh();
               }}
-              style={{ padding: '8px 16px', background: 'var(--accent-cyan)', color: '#000', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+              style={{ padding: '8px 14px', background: 'var(--accent-cyan)', color: '#000', border: 'none', borderRadius: '6px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
             >
-              <RefreshCw size={14} /> Retry Analysis
+              <RefreshCw size={13} /> Retry Analysis
             </button>
           )}
           <button 
@@ -107,22 +116,24 @@ function InvestigationWorkspace() {
                 window.open(kairosClient.getReportUrl(data.investigation._id), '_blank');
               }
             }}
-            style={{ padding: '8px 16px', background: isFailed ? 'transparent' : 'var(--accent-cyan)', border: isFailed ? '1px solid var(--border-color)' : 'none', color: isFailed ? 'var(--text-secondary)' : '#000', borderRadius: '4px', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+            style={{ padding: '8px 14px', background: isFailed ? 'transparent' : 'var(--accent-cyan)', border: isFailed ? '1px solid var(--border-color)' : 'none', color: isFailed ? 'var(--text-secondary)' : '#000', borderRadius: '6px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', boxShadow: 'var(--shadow-sm)' }}
           >
-            {isFailed ? 'Export Log' : <><Download size={14} /> EXPORT REPORT</>}
+            {isFailed ? 'Export Log' : <><Download size={13} /> EXPORT REPORT</>}
           </button>
           
-          <div style={{ width: '1px', height: '24px', background: 'var(--border-color)', margin: '0 8px' }}></div>
-          <Clock size={18} color="var(--text-muted)" />
-          <Bell size={18} color="var(--text-muted)" />
+          <div style={{ width: '1px', height: '20px', background: 'var(--border-color)', margin: '0 4px' }}></div>
+          
+          <ThemeToggle size={16} />
+
           <button 
             onClick={() => setIsIntelligenceOpen(!isIntelligenceOpen)}
-            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: 0 }}
+            style={{ background: 'transparent', border: '1px solid var(--border-color)', borderRadius: '6px', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', transition: 'all 0.2s ease' }}
+            onMouseOver={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--border-highlight)' }}
+            onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.borderColor = 'var(--border-color)' }}
             title={isIntelligenceOpen ? "Hide Intelligence" : "Show Intelligence"}
           >
-            {isIntelligenceOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
+            {isIntelligenceOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
           </button>
-          <MoreVertical size={18} color="var(--text-muted)" />
         </div>
       </header>
 

@@ -26,25 +26,25 @@ export default function EnvironmentalConditions() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
         
         {/* Wind */}
-        <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ background: 'var(--input-bg)', padding: '12px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-            <Wind size={12} color="var(--text-muted)" />
+            <Wind size={12} color="var(--accent-blue)" />
             <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Wind</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-            <span className="tactical-text" style={{ fontSize: '18px' }}>{wind_speed.toFixed(1)}</span>
+            <span className="tactical-text" style={{ fontSize: '18px', color: 'var(--text-primary)', fontWeight: 700 }}>{wind_speed.toFixed(1)}</span>
             <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>kn</span>
           </div>
         </div>
 
         {/* Current */}
-        <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ background: 'var(--input-bg)', padding: '12px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-            <Waves size={12} color="var(--text-muted)" />
+            <Waves size={12} color="var(--accent-blue)" />
             <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Current</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-            <span className="tactical-text" style={{ fontSize: '18px' }}>{(env?.current_speed_kn ?? 0).toFixed(1)}</span>
+            <span className="tactical-text" style={{ fontSize: '18px', color: 'var(--text-primary)', fontWeight: 700 }}>{(env?.current_speed_kn ?? 0).toFixed(1)}</span>
             <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>kn</span>
           </div>
         </div>

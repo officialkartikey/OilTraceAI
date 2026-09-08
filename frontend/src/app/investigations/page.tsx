@@ -35,28 +35,28 @@ export default function InvestigationsPage() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
       <Header />
       
-      <div style={{ display: 'flex', flex: 1, padding: '32px', gap: '24px' }}>
+      <div style={{ display: 'flex', flex: 1, padding: '80px 32px 32px 32px', gap: '24px', overflowY: 'auto' }} className="custom-scrollbar">
         
         {/* Left Table Section */}
         <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '16px' }}>
           
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h1 style={{ fontSize: '24px', fontWeight: 600, letterSpacing: '1px' }}>Investigations</h1>
+            <h1 style={{ fontSize: '24px', fontWeight: 700, letterSpacing: '0.5px', color: 'var(--text-primary)' }}>Investigations</h1>
             
             <div style={{ display: 'flex', gap: '12px' }}>
-              <div className="tactical-panel" style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', gap: '8px' }}>
+              <div className="tactical-panel" style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', gap: '8px', background: 'var(--input-bg)' }}>
                 <Search size={16} color="var(--text-muted)" />
-                <input type="text" placeholder="Search ID, Location..." style={{ background: 'none', border: 'none', color: 'var(--text-primary)', outline: 'none', fontSize: '13px' }} />
+                <input type="text" placeholder="Search ID, Location..." style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', fontSize: '13px' }} />
               </div>
-              <button className="tactical-panel" style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-                <Filter size={16} /> Filter
+              <button className="tactical-panel" style={{ padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-secondary)', background: 'var(--input-bg)' }}>
+                <Filter size={15} /> Filter
               </button>
             </div>
           </div>
 
           <div className="tactical-panel" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             {/* Table Header */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 2fr 1fr 1fr 0.5fr', padding: '16px', borderBottom: '1px solid var(--border-color)', fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 2fr 1fr 1fr 0.5fr', padding: '14px 16px', borderBottom: '1px solid var(--border-color)', fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', background: 'var(--table-header-bg)', fontWeight: 700 }}>
               <div>ID</div>
               <div>Date</div>
               <div>Location</div>
@@ -66,7 +66,7 @@ export default function InvestigationsPage() {
             </div>
 
             {/* Table Body */}
-            <div style={{ overflowY: 'auto', flex: 1 }}>
+            <div style={{ overflowY: 'auto', flex: 1 }} className="custom-scrollbar">
               {loading ? (
                 <div style={{ padding: '32px', display: 'flex', justifyContent: 'center', color: 'var(--text-muted)' }}>
                   <Loader2 size={24} className="animate-spin" />
@@ -85,26 +85,22 @@ export default function InvestigationsPage() {
                     key={inv.id}
                     onClick={() => setSelectedRow(inv.id)}
                     style={{ 
-                      display: 'grid', gridTemplateColumns: '1.5fr 1fr 2fr 1fr 1fr 0.5fr', padding: '16px', 
-                      borderBottom: '1px solid rgba(255,255,255,0.05)',
-                      background: selectedRow === inv.id ? 'rgba(14, 165, 233, 0.1)' : 'transparent',
+                      display: 'grid', gridTemplateColumns: '1.5fr 1fr 2fr 1fr 1fr 0.5fr', padding: '14px 16px', 
+                      borderBottom: '1px solid var(--border-subtle)',
+                      background: selectedRow === inv.id ? 'rgba(14, 165, 233, 0.12)' : 'transparent',
                       cursor: 'pointer',
                       alignItems: 'center',
                       transition: 'background 0.2s'
                     }}
-                    onMouseOver={(e) => { if (selectedRow !== inv.id) e.currentTarget.style.background = 'rgba(255,255,255,0.02)' }}
+                    onMouseOver={(e) => { if (selectedRow !== inv.id) e.currentTarget.style.background = 'var(--table-row-hover)' }}
                     onMouseOut={(e) => { if (selectedRow !== inv.id) e.currentTarget.style.background = 'transparent' }}
                   >
-                    <div className="tactical-text" style={{ color: selectedRow === inv.id ? 'var(--accent-blue)' : 'var(--text-primary)' }}>{inv.id}</div>
-                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{new Date(inv.detectedAt).toISOString().substring(0, 16).replace('T', ' ')}</div>
-                    <div style={{ fontSize: '13px', color: 'var(--text-primary)' }}>{inv.currentLocation.lat.toFixed(2)}°N {inv.currentLocation.lng.toFixed(2)}°E</div>
-                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>SAR Detection</div>
+                    <div className="tactical-text" style={{ color: selectedRow === inv.id ? 'var(--accent-blue)' : 'var(--text-primary)', fontWeight: 600 }}>{inv.id}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{new Date(inv.detectedAt).toISOString().substring(0, 16).replace('T', ' ')}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{inv.currentLocation.lat.toFixed(2)}°N {inv.currentLocation.lng.toFixed(2)}°E</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>SAR Detection</div>
                     <div>
-                      <span style={{ 
-                        padding: '4px 8px', borderRadius: '4px', fontSize: '11px',
-                        background: inv.status === 'ACTIVE' ? 'rgba(239, 68, 68, 0.2)' : inv.status === 'VERIFYING' ? 'rgba(234, 179, 8, 0.2)' : 'rgba(255, 255, 255, 0.1)',
-                        color: inv.status === 'ACTIVE' ? 'var(--accent-red)' : inv.status === 'VERIFYING' ? 'var(--accent-yellow)' : 'var(--text-secondary)'
-                      }}>
+                      <span className={inv.status === 'ACTIVE' ? 'badge-active tactical-badge' : inv.status === 'VERIFYING' ? 'badge-verifying tactical-badge' : 'badge-neutral tactical-badge'}>
                         {inv.status}
                       </span>
                     </div>
@@ -160,21 +156,24 @@ export default function InvestigationsPage() {
                     </div>
                   </div>
 
-                  <div style={{ flex: 1, background: 'rgba(0,0,0,0.5)', border: '1px solid var(--border-color)', borderRadius: '6px', marginBottom: '24px', position: 'relative', overflow: 'hidden' }}>
+                  <div style={{ flex: 1, minHeight: '160px', background: 'var(--input-bg)', border: '1px solid var(--border-color)', borderRadius: '6px', marginBottom: '24px', position: 'relative', overflow: 'hidden' }}>
                      {/* Mini Map Placeholder */}
-                     <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle, #2a2a2a 1px, transparent 1px)', backgroundSize: '10px 10px', opacity: 0.3 }}></div>
+                     <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle, var(--border-color) 1px, transparent 1px)', backgroundSize: '12px 12px', opacity: 0.6 }}></div>
                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                       <span style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '2px' }}>Map View</span>
+                       <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 600 }}>Active Geo Theater</span>
                      </div>
                   </div>
 
                   <button 
                     onClick={() => router.push(`/investigations/${inv.id}`)}
                     style={{ 
-                      width: '100%', padding: '12px', background: 'var(--accent-blue)', color: '#fff', border: 'none', borderRadius: '4px',
+                      width: '100%', padding: '12px', background: 'var(--accent-blue)', color: '#fff', border: 'none', borderRadius: '6px',
                       display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', cursor: 'pointer',
-                      fontSize: '13px', fontWeight: 600
+                      fontSize: '13px', fontWeight: 600, transition: 'all 0.2s ease',
+                      boxShadow: 'var(--shadow-sm)'
                     }}
+                    onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}
+                    onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
                   >
                     Open in Tactical View <ArrowRight size={16} />
                   </button>

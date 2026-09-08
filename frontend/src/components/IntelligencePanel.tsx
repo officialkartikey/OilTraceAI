@@ -108,59 +108,59 @@ export default function IntelligencePanel() {
       <div
         className="tactical-panel"
         style={{
-          border: '1px solid rgba(14, 165, 233, 0.3)',
+          border: '1px solid var(--border-highlight)',
           padding: '16px',
-          background: 'rgba(15, 23, 42, 0.6)',
+          background: 'var(--card-bg)',
           borderRadius: '6px',
           display: 'flex',
           flexDirection: 'column',
           gap: '16px',
-          boxShadow: '0 4px 16px rgba(0,0,0,0.4)'
+          boxShadow: 'var(--shadow-md)'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '10px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: '#38bdf8', letterSpacing: '0.8px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#38bdf8' }}></span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent-cyan)', letterSpacing: '0.8px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent-cyan)' }}></span>
             PRIMARY ATTRIBUTION / OBSERVATION
           </div>
-          {observationsLoading && <Loader2 size={12} className="animate-spin" color="#38bdf8" />}
+          {observationsLoading && <Loader2 size={12} className="animate-spin" color="var(--accent-cyan)" />}
         </div>
 
         {/* Observation Metadata Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
           {/* Sensor */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Sensor
             </div>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#f8fafc', fontFamily: 'monospace' }}>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
               {sensor}
             </div>
           </div>
 
           {/* Spill Location */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Spill Location
             </div>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#f8fafc', fontFamily: 'monospace' }}>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
               {spillLocation}
             </div>
           </div>
 
           {/* Wind Speed */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Wind Speed
             </div>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#38bdf8', fontFamily: 'monospace' }}>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
               {windSpeed}
             </div>
           </div>
 
           {/* Oil Spill Type */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               Oil Spill Type
             </div>
             <div style={{ fontSize: '12px', fontWeight: 600, color: '#eab308' }}>
@@ -177,9 +177,9 @@ export default function IntelligencePanel() {
           style={{
             width: '100%',
             padding: '12px',
-            background: 'rgba(56, 189, 248, 0.15)',
-            color: '#38bdf8',
-            border: '1px solid #38bdf8',
+            background: 'rgba(14, 165, 233, 0.12)',
+            color: 'var(--accent-cyan)',
+            border: '1px solid var(--accent-cyan)',
             borderRadius: '4px',
             fontSize: '11px',
             fontWeight: 700,
@@ -191,14 +191,20 @@ export default function IntelligencePanel() {
             alignItems: 'center',
             justifyContent: 'center',
             gap: '8px',
-            boxShadow: '0 2px 10px rgba(56, 189, 248, 0.2)'
+            boxShadow: '0 2px 10px rgba(14, 165, 233, 0.2)'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.background = 'rgba(14, 165, 233, 0.2)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.background = 'rgba(14, 165, 233, 0.12)';
           }}
         >
           <Ship size={14} />
           CULPRIT VESSELS & TRACK
           {candidates.length > 0 && (
             <span style={{
-              background: '#38bdf8',
+              background: 'var(--accent-cyan)',
               color: '#000',
               borderRadius: '10px',
               padding: '1px 6px',

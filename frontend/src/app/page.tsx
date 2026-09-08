@@ -73,11 +73,12 @@ export default function Dashboard() {
                     alerts.map(alert => (
                       <Link href={`/investigations/${alert._id}`} key={alert._id} style={{ textDecoration: 'none' }}>
                         <div style={{ 
-                          padding: '16px', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', 
-                          borderRadius: '6px', cursor: 'pointer', transition: 'border-color 0.2s'
+                          padding: '16px', background: 'var(--card-bg)', border: '1px solid var(--border-color)', 
+                          borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s ease',
+                          boxShadow: 'var(--shadow-sm)'
                         }}
-                        onMouseOver={(e) => e.currentTarget.style.borderColor = 'var(--accent-blue)'}
-                        onMouseOut={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}>
+                        onMouseOver={(e) => { e.currentTarget.style.borderColor = 'var(--border-highlight)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                        onMouseOut={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.transform = 'translateY(0)'; }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                             <span style={{ fontSize: '12px', color: 'var(--accent-yellow)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                               <Shield size={12} /> New Detection

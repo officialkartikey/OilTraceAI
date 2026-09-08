@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { InvestigationProvider, useInvestigation } from '@/context/InvestigationContext';
 import { kairosClient } from '@/lib/api/kairosClient';
+import ThemeToggle from '@/components/ThemeToggle';
 
 const MapWidget = dynamic(() => import('@/components/MapWidget'), { ssr: false });
 
@@ -236,21 +237,22 @@ function ObservationWorkspace() {
         </div>
 
         {/* Right Actions */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button
             onClick={() => router.push(`/vessels?investigationId=${inv._id}`)}
             style={{
               padding: '8px 14px',
-              background: 'rgba(56, 189, 248, 0.15)',
-              border: '1px solid #38bdf8',
-              color: '#38bdf8',
+              background: 'rgba(56, 189, 248, 0.12)',
+              border: '1px solid var(--accent-cyan)',
+              color: 'var(--accent-cyan)',
               borderRadius: '4px',
               fontSize: '11px',
               fontWeight: 700,
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              transition: 'all 0.2s'
             }}
           >
             <Ship size={13} />
@@ -261,7 +263,7 @@ function ObservationWorkspace() {
             onClick={() => router.push(`/investigations/${inv._id}`)}
             style={{
               padding: '8px 14px',
-              background: 'transparent',
+              background: 'var(--input-bg)',
               border: '1px solid var(--border-color)',
               color: 'var(--text-primary)',
               borderRadius: '4px',
@@ -270,7 +272,8 @@ function ObservationWorkspace() {
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              transition: 'all 0.2s'
             }}
           >
             <Activity size={13} />
@@ -294,12 +297,15 @@ function ObservationWorkspace() {
               display: 'flex', 
               alignItems: 'center', 
               gap: '6px', 
-              cursor: 'pointer' 
+              cursor: 'pointer',
+              transition: 'all 0.2s'
             }}
           >
             <Download size={13} />
             REPORT
           </button>
+
+          <ThemeToggle />
         </div>
       </header>
 
@@ -370,50 +376,50 @@ function ObservationWorkspace() {
             style={{ 
               padding: '18px', 
               borderRadius: '6px', 
-              background: 'rgba(15, 23, 42, 0.7)',
-              border: '1px solid rgba(14, 165, 233, 0.3)',
+              background: 'var(--card-bg)',
+              border: '1px solid var(--border-color)',
               display: 'flex',
               flexDirection: 'column',
               gap: '14px',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.4)'
+              boxShadow: 'var(--shadow-card)'
             }}
           >
-            <div style={{ fontSize: '11px', fontWeight: 700, color: '#38bdf8', letterSpacing: '0.8px', textTransform: 'uppercase', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent-cyan)', letterSpacing: '0.8px', textTransform: 'uppercase', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '8px' }}>
               SAR Overpass Telemetry
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
               <div>
                 <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Sensor / Mode</div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#f8fafc', marginTop: '2px' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginTop: '2px' }}>
                   {obs?.sensor?.toUpperCase() || 'SENTINEL-1'} IW
                 </div>
               </div>
 
               <div>
                 <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Spill Location</div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#f8fafc', marginTop: '2px', fontFamily: 'monospace' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginTop: '2px', fontFamily: 'monospace' }}>
                   {spillLocation}
                 </div>
               </div>
 
               <div>
                 <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Wind Speed</div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#38bdf8', marginTop: '2px', fontFamily: 'monospace' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent-cyan)', marginTop: '2px', fontFamily: 'monospace' }}>
                   {windSpeed}
                 </div>
               </div>
 
               <div>
                 <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Surface Current</div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#38bdf8', marginTop: '2px', fontFamily: 'monospace' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent-cyan)', marginTop: '2px', fontFamily: 'monospace' }}>
                   {currentSpeed} @ {currentDir}
                 </div>
               </div>
 
               <div>
                 <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Slick Extent</div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#eab308', marginTop: '2px' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent-yellow)', marginTop: '2px' }}>
                   {areaKm2}
                 </div>
               </div>
@@ -428,7 +434,7 @@ function ObservationWorkspace() {
 
             <div>
               <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Ingestion Timestamp</div>
-              <div style={{ fontSize: '12px', color: '#cbd5e1', marginTop: '2px', fontFamily: 'monospace' }}>
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px', fontFamily: 'monospace' }}>
                 {timeStr}
               </div>
             </div>
@@ -447,7 +453,7 @@ function ObservationWorkspace() {
               height: '180px', 
               border: '1px solid var(--border-color)', 
               borderRadius: '6px', 
-              background: '#090d16', 
+              background: 'var(--input-bg)', 
               position: 'relative', 
               overflow: 'hidden',
               display: 'flex',
@@ -473,7 +479,7 @@ function ObservationWorkspace() {
                 display: 'flex', 
                 justifyContent: 'space-between', 
                 alignItems: 'center', 
-                background: 'rgba(15, 23, 42, 0.9)' 
+                background: 'var(--table-header-bg)' 
               }}>
                 <span style={{ fontSize: '10px', color: 'var(--accent-cyan)', fontFamily: 'monospace' }}>
                   SAR_VV_GRD | RES: 10m
@@ -492,7 +498,7 @@ function ObservationWorkspace() {
                 padding: '16px', 
                 background: 'rgba(249, 115, 22, 0.08)', 
                 border: '1px solid rgba(249, 115, 22, 0.3)', 
-                borderRadius: '6px',
+                borderRadius: '6px', 
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '10px'
@@ -508,7 +514,7 @@ function ObservationWorkspace() {
               </div>
 
               <div>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#f8fafc' }}>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
                   {candidates[0].vessel?.name || 'Unknown Vessel'}
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace', marginTop: '2px' }}>
