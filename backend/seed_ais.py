@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import motor.motor_asyncio
 import math
+import argparse
+from app.core.gis import is_in_arabian_sea_operating_area
 
 load_dotenv()
 MONGODB_URI = os.getenv("MONGODB_URI")
@@ -22,22 +24,19 @@ VESSELS = [
 now = datetime.utcnow()
 start_time = now - timedelta(hours=48)
 
-# Based on the exact pixel offset of the oil slick in the demo image:
-# The oil slick appears at 68.252, 16.569.
-# 12 hours backward drift yields the exact origin at:
-BASE_LAT = 16.489
-BASE_LON = 68.096
+DEFAULT_BASE_LAT = 16.489
+DEFAULT_BASE_LON = 68.096
 
-def generate_track(vessel, start_time, duration_hours, steps_per_hour=6, anomaly=False):
+def generate_track(vessel, start_time, duration_hours, steps_per_hour=6, anomaly=False, base_lat=DEFAULT_BASE_LAT, base_lon=DEFAULT_BASE_LON):
     track = []
     
     # Random starting point within 2 degrees of base
-    current_lat = BASE_LAT + random.uniform(-2, 2)
-    current_lon = BASE_LON + random.uniform(-2, 2)
+    current_lat = base_lat + random.uniform(-2, 2)
+    current_lon = base_lon + random.uniform(-2, 2)
     
     # Target point
-    target_lat = BASE_LAT + random.uniform(-0.1, 0.1) if anomaly else BASE_LAT + random.uniform(-2, 2)
-    target_lon = BASE_LON + random.uniform(-0.1, 0.1) if anomaly else BASE_LON + random.uniform(-2, 2)
+    target_lat = base_lat + random.uniform(-0.1, 0.1) if anomaly else base_lat + random.uniform(-2, 2)
+    target_lon = base_lon + random.uniform(-0.1, 0.1) if anomaly else base_lon + random.uniform(-2, 2)
     
     speed = random.uniform(10.0, 18.0)
     
@@ -69,8 +68,8 @@ def generate_track(vessel, start_time, duration_hours, steps_per_hour=6, anomaly
             
             # Make sure it happens right near the base coordinates for perfect overlap
             if step == anomaly_step_start:
-                current_lat = BASE_LAT
-                current_lon = BASE_LON
+                current_lat = base_lat
+                current_lon = base_lon
         else:
             # Normal movement with slight noise
             step_heading += random.uniform(-2, 2)
@@ -100,9 +99,21 @@ def generate_track(vessel, start_time, duration_hours, steps_per_hour=6, anomaly
     return track
 
 async def main():
+    parser = argparse.ArgumentParser(description="Seed synthetic AIS records around an Arabian Sea coordinate.")
+    parser.add_argument("--base-lat", type=float, default=DEFAULT_BASE_LAT)
+    parser.add_argument("--base-lon", type=float, default=DEFAULT_BASE_LON)
+    parser.add_argument("--clear", action="store_true", help="Delete existing AIS records before inserting new seed data.")
+    args = parser.parse_args()
+
+    if not is_in_arabian_sea_operating_area(args.base_lat, args.base_lon):
+        raise ValueError("Seed coordinates must be inside the Arabian Sea operating area.")
+
     client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URI)
     db = client[MONGODB_DATABASE]
     ais_coll = db["ais_records"]
+
+    if args.clear:
+        await ais_coll.delete_many({})
     
     # Generate around 500 records total
     all_records = []
@@ -110,7 +121,15 @@ async def main():
     for idx, v in enumerate(VESSELS):
         # The first vessel will have an anomaly to be our clear "suspect"
         is_anomaly = (idx == 0)
-        track = generate_track(v, start_time, duration_hours=48, steps_per_hour=3, anomaly=is_anomaly)
+        track = generate_track(
+            v,
+            start_time,
+            duration_hours=48,
+            steps_per_hour=3,
+            anomaly=is_anomaly,
+            base_lat=args.base_lat,
+            base_lon=args.base_lon,
+        )
         all_records.extend(track)
         
     print(f"Generated {len(all_records)} AIS records.")

@@ -4,6 +4,7 @@ from typing import Dict, Any, List, Optional
 from app.schemas.detection import Detection
 from app.schemas.reconstruction import ReconstructionCreate, TimeWindow
 from app.schemas.environment import EnvironmentSnapshot
+from app.core.gis import bounding_box_around_point, geometry_centroid
 
 class DriftEngine:
     def __init__(self):
@@ -49,15 +50,12 @@ class DriftEngine:
         if environment.status != "AVAILABLE" or not environment.data:
             raise ValueError(f"Cannot perform drift reconstruction: Environment data is {environment.status}")
 
-        start_lon, start_lat = 72.85, 19.05
-        if detection.geometry and "coordinates" in detection.geometry:
-            coords = detection.geometry["coordinates"][0] if detection.geometry["type"] == "Polygon" else detection.geometry["coordinates"][0][0]
-            start_lon = sum([c[0] for c in coords]) / len(coords)
-            start_lat = sum([c[1] for c in coords]) / len(coords)
-        elif observation and observation.geospatial_bounds and "coordinates" in observation.geospatial_bounds:
-            coords = observation.geospatial_bounds["coordinates"][0]
-            start_lon = sum([c[0] for c in coords]) / len(coords)
-            start_lat = sum([c[1] for c in coords]) / len(coords)
+        centroid = geometry_centroid(detection.geometry)
+        if not centroid and observation:
+            centroid = geometry_centroid(observation.geospatial_bounds)
+        if not centroid:
+            raise ValueError("Cannot perform drift reconstruction without georeferenced detection or observation bounds")
+        start_lon, start_lat = centroid
 
         base_time = observation.timestamp if observation else detection.created_at
         if base_time.tzinfo is not None:
@@ -86,7 +84,8 @@ class DriftEngine:
             back_v = -total_v
             
             total_seconds = self.time_step_hours * 3600
-            lon_deg_per_m = 1.0 / (111320.0 * math.cos(math.radians(current_lat)))
+            lon_scale = max(abs(math.cos(math.radians(current_lat))), 0.01)
+            lon_deg_per_m = 1.0 / (111320.0 * lon_scale)
             
             current_lon += (back_u * total_seconds * lon_deg_per_m)
             current_lat += (back_v * total_seconds * lat_deg_per_m)
@@ -97,21 +96,8 @@ class DriftEngine:
 
         # Uncertainty grows with time, e.g. 1km per hour simulated
         uncertainty_km = 2.0 + (hours_simulated * 1.0)
-        box_size_deg = (uncertainty_km * 1000) * lat_deg_per_m
-        
-        # Source region is a buffer around the final point
         final_lon, final_lat = current_lon, current_lat
-        
-        source_region = {
-            "type": "Polygon",
-            "coordinates": [[
-                [final_lon - box_size_deg, final_lat - box_size_deg],
-                [final_lon + box_size_deg, final_lat - box_size_deg],
-                [final_lon + box_size_deg, final_lat + box_size_deg],
-                [final_lon - box_size_deg, final_lat + box_size_deg],
-                [final_lon - box_size_deg, final_lat - box_size_deg]
-            ]]
-        }
+        source_region = bounding_box_around_point(lat=final_lat, lon=final_lon, radius_km=uncertainty_km)
         
         # Release window: We consider the time at the end of the hindcast +/- 1 hour
         end_time = current_time + timedelta(hours=1)

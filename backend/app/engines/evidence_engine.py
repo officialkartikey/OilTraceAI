@@ -4,6 +4,7 @@ from app.schemas.reconstruction import Reconstruction
 from app.schemas.fusion import CandidateFeatures
 from app.engines.spatial_engine import spatial_engine
 from app.engines.temporal_engine import temporal_engine
+from app.core.gis import geometry_centroid
 import math
 from datetime import datetime
 from typing import Optional
@@ -47,9 +48,18 @@ class EvidenceEngine:
         # in the source region, and checks how close they get to the detected slick.
         # For the sake of this prototype, we will use the inverse of the spatial distance 
         # from the end of their track to the slick, penalized by how far off the horizon is.
-        slick_lon, slick_lat = 72.85, 19.05
-        if detection and detection.geometry and "coordinates" in detection.geometry:
-            slick_lon, slick_lat = spatial_engine.get_centroid(detection.geometry, default_lon=72.85, default_lat=19.05)
+        centroid = None
+        if detection and detection.geometry:
+            centroid = geometry_centroid(detection.geometry)
+            if not centroid and "coordinates" in detection.geometry:
+                centroid = spatial_engine.get_centroid(detection.geometry, default_lon=72.85, default_lat=19.05)
+        if not centroid and reconstruction and reconstruction.source_region:
+            centroid = geometry_centroid(reconstruction.source_region)
+            if not centroid and "coordinates" in reconstruction.source_region:
+                centroid = spatial_engine.get_centroid(reconstruction.source_region, default_lon=72.85, default_lat=19.05)
+        if not centroid:
+            centroid = (72.85, 19.05)
+        slick_lon, slick_lat = centroid
             
         min_dist = float('inf')
         for pos in track.positions:

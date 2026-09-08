@@ -66,10 +66,10 @@ Uploads the SAR image for the investigation.
 }
 ```
 
-> **Demo Note:** For optimal demonstration results with the seeded AIS database, you must use the following exact deterministic inputs in the UI:
-> - **Location (Lat, Lon):** `19.0`, `72.8` (Off the coast of Mumbai)
-> - **Date & Time (UTC):** `2025-01-01T10:30:00`
-> *(Note: The backend has been completely refactored to be a fully deterministic, end-to-end physics pipeline. Prototype hacks have been removed. You must input the correct time and location to intersect the seed data.)*
+> **Demo Note:** The backend now accepts any coordinate inside the Arabian Sea operating envelope
+> (`lat -5.0..30.5`, `lon 43.0..80.0`). For deterministic candidate attribution in a demo,
+> seed AIS data around the uploaded scene using `python seed_ais.py --base-lat <lat> --base-lon <lon> --clear`,
+> then use a timestamp that overlaps the generated 48-hour AIS window.
 
 ### 3. Trigger Analysis
 Starts the asynchronous background pipeline (ML -> Physics -> AIS -> Fusion).

@@ -5,6 +5,8 @@ from app.engines.spatial_engine import spatial_engine
 from datetime import datetime, timedelta, timezone
 import math
 import logging
+from app.core.gis import bounding_box_around_point, geometry_centroid
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -58,13 +60,45 @@ class VesselRepository:
             ]]
         }
 
+    async def get(self, vessel_id: str) -> Optional[VesselTrack]:
+        """
+        Fetch vessel track by vessel_id.
+        """
+        cursor = self.collection.find({"vessel_id": vessel_id}).sort("timestamp", 1)
+        records = []
+        async for doc in cursor:
+            doc["_id"] = str(doc["_id"])
+            records.append(AisRecord(**doc))
+        if not records:
+            return None
+        r0 = records[0]
+        positions = [
+            AisPosition(
+                timestamp=r.timestamp,
+                location=r.location,
+                speed=r.speed,
+                heading=r.heading,
+                course=r.course
+            )
+            for r in records
+        ]
+        return VesselTrack(
+            vessel_id=r0.vessel_id,
+            mmsi=r0.mmsi,
+            imo=r0.imo,
+            name=r0.name,
+            vessel_type=r0.vessel_type,
+            positions=positions
+        )
+
     async def find_candidates(
         self, 
         source_region: dict, 
         start_time: datetime, 
         end_time: datetime, 
         buffer_hours: int = 3,
-        spatial_buffer_km: float = 25.0
+        spatial_buffer_km: float = 25.0,
+        search_radius_km: Optional[float] = 330.0
     ) -> list[VesselTrack]:
         """
         Query AIS positions intersecting source region during the release window.
@@ -86,15 +120,27 @@ class VesselRepository:
         search_end = end_time + timedelta(hours=buffer_hours)
         search_geometry = self._expand_geometry(source_region, buffer_km=spatial_buffer_km)
 
+        # Build coarse kilometer-based search bounding box across Arabian Sea if centroid available
+        coarse_geometry = None
+        centroid = geometry_centroid(source_region)
+        if centroid and search_radius_km is not None:
+            center_lon, center_lat = centroid
+            coarse_geometry = bounding_box_around_point(
+                lat=center_lat,
+                lon=center_lon,
+                radius_km=search_radius_km,
+            )
+
         # Extract bounds for diagnostic logging
         pts = spatial_engine.extract_coordinates(search_geometry)
-        lons = [p[0] for p in pts]
-        lats = [p[1] for p in pts]
-        logger.info(
-            f"[ATTRIBUTION] AIS search params: time=[{search_start} to {search_end}], "
-            f"lon=[{min(lons):.4f}, {max(lons):.4f}], lat=[{min(lats):.4f}, {max(lats):.4f}], "
-            f"spatial_buffer_km={spatial_buffer_km}"
-        )
+        if pts:
+            lons = [p[0] for p in pts]
+            lats = [p[1] for p in pts]
+            logger.info(
+                f"[ATTRIBUTION] AIS search params: time=[{search_start} to {search_end}], "
+                f"lon=[{min(lons):.4f}, {max(lons):.4f}], lat=[{min(lats):.4f}, {max(lats):.4f}], "
+                f"spatial_buffer_km={spatial_buffer_km}"
+            )
 
         initial_query = {
             "timestamp": {"$gte": search_start, "$lte": search_end},
@@ -111,6 +157,26 @@ class VesselRepository:
         async for doc in cursor:
             ais_matches_count += 1
             candidate_ids.add(doc["vessel_id"])
+
+        # If no candidates found in tight buffer, expand to coarse radius (e.g. for synthetic/demo data)
+        if not candidate_ids and coarse_geometry:
+            logger.info(
+                f"[ATTRIBUTION] No AIS pings in {spatial_buffer_km}km buffer. "
+                f"Expanding search to {search_radius_km}km coarse bounding box..."
+            )
+            coarse_query = {
+                "timestamp": {"$gte": search_start, "$lte": search_end},
+                "location": {
+                    "$geoIntersects": {
+                        "$geometry": coarse_geometry
+                    }
+                }
+            }
+            coarse_cursor = self.collection.find(coarse_query, {"vessel_id": 1})
+            async for doc in coarse_cursor:
+                ais_matches_count += 1
+                candidate_ids.add(doc["vessel_id"])
+
             
         logger.info(
             f"[ATTRIBUTION] AIS query returned {ais_matches_count} matching records for "
